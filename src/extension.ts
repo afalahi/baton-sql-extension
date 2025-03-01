@@ -33,20 +33,11 @@ async function applyBatonSQLSchema(fileName: string) {
   const schemaPath = path.join(__dirname, "..", "schemas", "baton-schema.json");
   const schemaUri = vscode.Uri.file(schemaPath).toString();
 
-  vscode.window.showInformationMessage(`Schema Path: ${schemaPath}`);
-
-  if (fs.existsSync(schemaPath)) {
-    vscode.window.showInformationMessage("Schema file found.");
-  } else {
-    vscode.window.showErrorMessage("Schema file not found at: " + schemaPath);
-    return;
-  }
-
   const config = vscode.workspace.getConfiguration("yaml");
   const currentSchemas =
     config.get<{ [key: string]: string[] }>("schemas") || {};
 
-  currentSchemas[schemaUri] = ["baton-sql-*.yaml", "baton-sql-*.yml", fileName];
+  currentSchemas[schemaUri] = ["baton-sql-*.yaml", "baton-sql-*.yml"];
 
   await config.update(
     "schemas",

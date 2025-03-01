@@ -27,6 +27,10 @@
     "watch": "tsc -watch -p .",
     "package": "vsce package"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/afalahi/baton-sql-extension"
+  },
   "devDependencies": {
     "@types/node": "^22.13.8",
     "@types/vscode": "^1.80.0",

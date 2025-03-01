@@ -1,0 +1,35 @@
+{
+  "name": "baton-sql-extension",
+  "displayName": "Baton SQL Extension",
+  "description": "Automatically apply the Baton SQL Schema to relevant YAML files",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:yaml",
+    "onCommand:batonSQL.applySchema"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "batonSQL.applySchema",
+        "title": "Apply Baton SQL Schema to Current File"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.8",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^4.0.0"
+  }
+}

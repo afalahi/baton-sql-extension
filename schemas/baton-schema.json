@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "type": "object",
+  "properties": {
+    "app_name": {
+      "type": "string",
+      "description": "The name of the application that will be displayed in ConductorOne"
+    },
+    "connect": {
+      "type": "object",
+      "description": "The Connection string for the database",
+      "properties": {
+        "dsn": {
+          "type": "string",
+          "description": "DNS for the database connection (query string)",
+          "pattern": "^[a-zA-Z0-9]+:\\/\\/.+:.+@.+:.+\\/.+$",
+          "examples": [
+            "oracle://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_SERVICE}",
+            "mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}",
+            "postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+          ]
+        }
+      }
+    },
+    "resource_types": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "list": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "contentMediaType": "text/sql",
+                "description": "SQL query to list resources"
+              },
+              "map": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "display_name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "traits": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "object",
+                      "required": ["profile"],
+                      "properties": {
+                        "profile": { "type": "object" },
+                        "status": { "type": "string" },
+                        "status_details": { "type": "string" },
+                        "login": { "type": "string" }
+                      }
+                    }
+                  }
+                },
+                "required": ["id", "display_name", "description"]
+              }
+            },
+            "required": ["query", "map"]
+          }
+        },
+        "required": ["name", "description", "list"]
+      }
+    }
+  },
+  "required": ["resource_types"]
+}

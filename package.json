@@ -9,8 +9,10 @@
   "categories": [
     "Other"
   ],
+  "icon": "assets/icon.png",
   "activationEvents": [
     "onLanguage:yaml",
+    "onStartupFinished",
     "onCommand:batonSQL.applySchema"
   ],
   "main": "./out/extension.js",

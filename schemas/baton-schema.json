@@ -4,31 +4,33 @@
   "properties": {
     "app_name": {
       "type": "string",
-      "description": "The name of the application that will be displayed in ConductorOne"
+      "description": "Application name for the Finance DB connector"
     },
     "connect": {
       "type": "object",
-      "description": "The Connection string for the database",
+      "description": "Database connection configuration",
       "properties": {
         "dsn": {
           "type": "string",
-          "description": "DNS for the database connection (query string)",
-          "pattern": "^[a-zA-Z0-9]+:\\/\\/.+:.+@.+:.+\\/.+$",
-          "examples": [
-            "oracle://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_SERVICE}",
-            "mysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}",
-            "postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
-          ]
+          "description": "Database connection string",
+          "pattern": "^[a-zA-Z0-9]+:\\/\\/.+:.+@.+:.+\\/.+$"
         }
-      }
+      },
+      "required": ["dsn"]
     },
     "resource_types": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "description": { "type": "string" },
+          "name": {
+            "type": "string",
+            "description": "Display name of the resource type"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the resource type"
+          },
           "list": {
             "type": "object",
             "properties": {
@@ -40,32 +42,268 @@
               "map": {
                 "type": "object",
                 "properties": {
-                  "id": { "type": "string" },
-                  "display_name": { "type": "string" },
-                  "description": { "type": "string" },
+                  "id": {
+                    "type": "string",
+                    "description": "Field mapping for resource ID"
+                  },
+                  "display_name": {
+                    "type": "string",
+                    "description": "Field mapping for display name"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Field mapping for description"
+                  },
                   "traits": {
                     "type": "object",
-                    "additionalProperties": {
-                      "type": "object",
-                      "required": ["profile"],
-                      "properties": {
-                        "profile": { "type": "object" },
-                        "status": { "type": "string" },
-                        "status_details": { "type": "string" },
-                        "login": { "type": "string" }
+                    "properties": {
+                      "user": {
+                        "type": "object",
+                        "required": ["emails", "status", "login"],
+                        "properties": {
+                          "emails": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^\\.email$"
+                            },
+                            "minItems": 1
+                          },
+                          "status": {
+                            "type": "string",
+                            "pattern": "^\\.is_deleted == false \\? 'enabled' : 'disabled'$"
+                          },
+                          "login": {
+                            "type": "string",
+                            "pattern": "^\\.username$"
+                          }
+                        }
                       }
                     }
                   }
                 },
-                "required": ["id", "display_name", "description"]
+                "required": ["id", "display_name"]
+              },
+              "pagination": {
+                "type": "object",
+                "properties": {
+                  "strategy": {
+                    "type": "string",
+                    "enum": ["offset", "cursor"]
+                  },
+                  "primary_key": {
+                    "type": "string"
+                  }
+                },
+                "required": ["strategy", "primary_key"]
               }
             },
             "required": ["query", "map"]
+          },
+          "account_provisioning": {
+            "type": "object",
+            "properties": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": ["string", "number", "boolean"]
+                    },
+                    "placeholder": {
+                      "type": "string"
+                    },
+                    "required": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["name", "type"]
+                }
+              },
+              "credentials": {
+                "type": "object",
+                "properties": {
+                  "no_password": {
+                    "type": "object",
+                    "properties": {
+                      "preferred": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              },
+              "validate": {
+                "type": "object",
+                "properties": {
+                  "vars": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "query": {
+                    "type": "string",
+                    "contentMediaType": "text/sql"
+                  }
+                },
+                "required": ["query"]
+              },
+              "create": {
+                "type": "object",
+                "properties": {
+                  "vars": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "queries": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "contentMediaType": "text/sql"
+                    }
+                  }
+                },
+                "required": ["queries"]
+              }
+            }
+          },
+          "static_entitlements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "display_name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "purpose": {
+                  "type": "string",
+                  "enum": ["assignment", "permission"]
+                },
+                "grantable_to": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "provisioning": {
+                  "type": "object",
+                  "properties": {
+                    "vars": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "grant": {
+                      "type": "object",
+                      "properties": {
+                        "queries": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "contentMediaType": "text/sql"
+                          }
+                        }
+                      },
+                      "required": ["queries"]
+                    },
+                    "revoke": {
+                      "type": "object",
+                      "properties": {
+                        "queries": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "contentMediaType": "text/sql"
+                          }
+                        }
+                      },
+                      "required": ["queries"]
+                    }
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "display_name",
+                "description",
+                "purpose",
+                "grantable_to"
+              ]
+            }
+          },
+          "grants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string",
+                  "contentMediaType": "text/sql"
+                },
+                "map": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "skip_if": {
+                        "type": "string"
+                      },
+                      "principal_id": {
+                        "type": "string"
+                      },
+                      "principal_type": {
+                        "type": "string"
+                      },
+                      "entitlement_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "principal_id",
+                      "principal_type",
+                      "entitlement_id"
+                    ]
+                  }
+                },
+                "pagination": {
+                  "type": "object",
+                  "properties": {
+                    "strategy": {
+                      "type": "string",
+                      "enum": ["offset", "cursor"]
+                    },
+                    "primary_key": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["strategy", "primary_key"]
+                }
+              },
+              "required": ["query", "map"]
+            }
           }
         },
         "required": ["name", "description", "list"]
       }
     }
   },
-  "required": ["resource_types"]
+  "required": ["app_name", "connect", "resource_types"]
 }

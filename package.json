@@ -11,9 +11,8 @@
   ],
   "icon": "assets/icon.png",
   "activationEvents": [
-    "onLanguage:yaml",
     "onStartupFinished",
-    "onCommand:batonSQL.applySchema"
+    "onLanguage:yaml"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -22,11 +21,22 @@
         "command": "batonSQL.applySchema",
         "title": "Apply Baton SQL Schema to Current File"
       }
-    ]
+    ],
+    "yaml": {
+      "schemas": [
+        {
+          "fileMatch": [
+            "**/baton-sql-*.yaml",
+            "**/baton-sql-*.yml"
+          ],
+          "url": "./schemas/baton-schema.json"
+        }
+      ]
+    }
   },
   "scripts": {
-    "build": "tsc -p .",
-    "watch": "tsc -watch -p .",
+    "build": "webpack --mode production",
+    "watch": "webpack --mode development --watch",
     "package": "vsce package"
   },
   "repository": {
@@ -34,8 +44,16 @@
     "url": "https://github.com/afalahi/baton-sql-extension"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.8",
     "@types/vscode": "^1.80.0",
-    "typescript": "^4.0.0"
+    "ts-loader": "^9.5.2",
+    "typescript": "^4.0.0",
+    "webpack": "^5.99.8",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "node-sql-parser": "^5.3.9"
   }
 }

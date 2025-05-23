@@ -1,0 +1,13 @@
+.vscode/**
+.vscode-test/**
+src/**
+.gitignore
+.yarnrc
+tsconfig.json
+**/*.map
+**/*.ts
+node_modules/**
+!node_modules/node-sql-parser/**
+!node_modules/js-yaml/**
+!schemas/**
+webpack.config.js

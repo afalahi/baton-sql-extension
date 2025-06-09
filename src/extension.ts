@@ -182,7 +182,8 @@ const sqlValidationRules: ValidationRule[] = [
             const col = columns[i].trim();
             const words = col.split(/\s+/);
             // If there are multiple words and no AS keyword, might be missing comma
-            if (words.length > 3 && !col.toLowerCase().includes(' as ')) {
+            // Skip if it's a CASE statement
+            if (words.length > 3 && !col.toLowerCase().includes(' as ') && !col.toLowerCase().includes('case')) {
               return {
                 isValid: false,
                 errorMessage: 'Possible missing comma in column list',
@@ -195,6 +196,7 @@ const sqlValidationRules: ValidationRule[] = [
           if (originalQuery.includes('\n')) {
             const lines = originalQuery.split('\n');
             let inSelectClause = false;
+            let inCaseStatement = false;
             let previousLineNeedsComma = false;
             let previousLineIndex = -1;
 
@@ -213,7 +215,15 @@ const sqlValidationRules: ValidationRule[] = [
                 continue;
               }
 
-              if (inSelectClause) {
+              // Track CASE statement boundaries
+              if (lowerLine.includes('case')) {
+                inCaseStatement = true;
+              }
+              if (lowerLine.includes('end')) {
+                inCaseStatement = false;
+              }
+
+              if (inSelectClause && !inCaseStatement) {
                 // Line needs comma if it's not the last one before FROM
                 if (
                   previousLineNeedsComma &&
@@ -222,7 +232,6 @@ const sqlValidationRules: ValidationRule[] = [
                   return {
                     isValid: false,
                     errorMessage: 'Missing comma at end of previous line',
-                    // Use line number directly for better positioning
                     lineNumber: previousLineIndex,
                   };
                 }
@@ -780,6 +789,42 @@ const sqlValidationRules: ValidationRule[] = [
 
       return { isValid: true };
     },
+  },
+  {
+    name: 'property-name-typos',
+    description: 'Check for common property name typos',
+    validate: (sql: string, originalQuery: string) => {
+      // Common property name typos and their corrections
+      const propertyTypos = {
+        'static_entitlement': 'static_entitlements',
+        'staticentitlements': 'static_entitlements',
+        'static_entitlementz': 'static_entitlements',
+        'static_entitlementss': 'static_entitlements',
+        'staticentitlement': 'static_entitlements',
+        'static_entitlement_': 'static_entitlements',
+        '_static_entitlements': 'static_entitlements'
+      };
+
+      // Check each line for property name typos
+      const lines = originalQuery.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        // Check for property name typos
+        for (const [typo, correction] of Object.entries(propertyTypos)) {
+          if (line.includes(typo + ':')) {
+            return {
+              isValid: false,
+              errorMessage: `Did you mean '${correction}' instead of '${typo}'?`,
+              lineNumber: i
+            };
+          }
+        }
+      }
+
+      return { isValid: true };
+    }
   },
 ];
 

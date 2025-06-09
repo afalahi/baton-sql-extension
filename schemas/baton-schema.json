@@ -22,6 +22,13 @@
       "type": "object",
       "additionalProperties": {
         "type": "object",
+        "additionalProperties": false,
+        "patternProperties": {
+          "^static_entitlement$": {
+            "type": "array",
+            "errorMessage": "Did you mean 'static_entitlements'?"
+          }
+        },
         "properties": {
           "name": {
             "type": "string",
@@ -33,6 +40,7 @@
           },
           "list": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "query": {
                 "type": "string",
@@ -41,6 +49,7 @@
               },
               "map": {
                 "type": "object",
+                "additionalProperties": false,
                 "properties": {
                   "id": {
                     "type": "string",
@@ -56,26 +65,14 @@
                   },
                   "traits": {
                     "type": "object",
-                    "properties": {
-                      "user": {
-                        "type": "object",
-                        "required": ["emails", "status", "login"],
-                        "properties": {
-                          "emails": {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "pattern": "^\\.email$"
-                            },
-                            "minItems": 1
-                          },
-                          "status": {
-                            "type": "string",
-                            "pattern": "^\\.is_deleted == false \\? 'enabled' : 'disabled'$"
-                          },
-                          "login": {
-                            "type": "string",
-                            "pattern": "^\\.username$"
+                    "additionalProperties": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "profile": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string"
                           }
                         }
                       }
@@ -86,6 +83,7 @@
               },
               "pagination": {
                 "type": "object",
+                "additionalProperties": false,
                 "properties": {
                   "strategy": {
                     "type": "string",
@@ -100,88 +98,11 @@
             },
             "required": ["query", "map"]
           },
-          "account_provisioning": {
-            "type": "object",
-            "properties": {
-              "schema": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "name": {
-                      "type": "string"
-                    },
-                    "description": {
-                      "type": "string"
-                    },
-                    "type": {
-                      "type": "string",
-                      "enum": ["string", "number", "boolean"]
-                    },
-                    "placeholder": {
-                      "type": "string"
-                    },
-                    "required": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": ["name", "type"]
-                }
-              },
-              "credentials": {
-                "type": "object",
-                "properties": {
-                  "no_password": {
-                    "type": "object",
-                    "properties": {
-                      "preferred": {
-                        "type": "boolean"
-                      }
-                    }
-                  }
-                }
-              },
-              "validate": {
-                "type": "object",
-                "properties": {
-                  "vars": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
-                  "query": {
-                    "type": "string",
-                    "contentMediaType": "text/sql"
-                  }
-                },
-                "required": ["query"]
-              },
-              "create": {
-                "type": "object",
-                "properties": {
-                  "vars": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
-                  "queries": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "contentMediaType": "text/sql"
-                    }
-                  }
-                },
-                "required": ["queries"]
-              }
-            }
-          },
           "static_entitlements": {
             "type": "array",
             "items": {
               "type": "object",
+              "additionalProperties": false,
               "properties": {
                 "id": {
                   "type": "string"
@@ -201,58 +122,16 @@
                   "items": {
                     "type": "string"
                   }
-                },
-                "provisioning": {
-                  "type": "object",
-                  "properties": {
-                    "vars": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "grant": {
-                      "type": "object",
-                      "properties": {
-                        "queries": {
-                          "type": "array",
-                          "items": {
-                            "type": "string",
-                            "contentMediaType": "text/sql"
-                          }
-                        }
-                      },
-                      "required": ["queries"]
-                    },
-                    "revoke": {
-                      "type": "object",
-                      "properties": {
-                        "queries": {
-                          "type": "array",
-                          "items": {
-                            "type": "string",
-                            "contentMediaType": "text/sql"
-                          }
-                        }
-                      },
-                      "required": ["queries"]
-                    }
-                  }
                 }
               },
-              "required": [
-                "id",
-                "display_name",
-                "description",
-                "purpose",
-                "grantable_to"
-              ]
+              "required": ["id", "display_name", "description", "purpose", "grantable_to"]
             }
           },
           "grants": {
             "type": "array",
             "items": {
               "type": "object",
+              "additionalProperties": false,
               "properties": {
                 "query": {
                   "type": "string",
@@ -262,6 +141,7 @@
                   "type": "array",
                   "items": {
                     "type": "object",
+                    "additionalProperties": false,
                     "properties": {
                       "skip_if": {
                         "type": "string"
@@ -276,25 +156,8 @@
                         "type": "string"
                       }
                     },
-                    "required": [
-                      "principal_id",
-                      "principal_type",
-                      "entitlement_id"
-                    ]
+                    "required": ["principal_id", "principal_type", "entitlement_id"]
                   }
-                },
-                "pagination": {
-                  "type": "object",
-                  "properties": {
-                    "strategy": {
-                      "type": "string",
-                      "enum": ["offset", "cursor"]
-                    },
-                    "primary_key": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["strategy", "primary_key"]
                 }
               },
               "required": ["query", "map"]
@@ -302,6 +165,210 @@
           }
         },
         "required": ["name", "description", "list"]
+      }
+    },
+    "account_provisioning": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["string", "number", "boolean"]
+              },
+              "placeholder": {
+                "type": "string"
+              },
+              "required": {
+                "type": "boolean"
+              }
+            },
+            "required": ["name", "type"]
+          }
+        },
+        "credentials": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "no_password": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "preferred": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "validate": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "vars": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "query": {
+              "type": "string",
+              "contentMediaType": "text/sql"
+            }
+          },
+          "required": ["query"]
+        },
+        "create": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "vars": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "queries": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "contentMediaType": "text/sql"
+              }
+            }
+          },
+          "required": ["queries"]
+        }
+      }
+    },
+    "static_entitlements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": ["assignment", "permission"]
+          },
+          "grantable_to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "provisioning": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "vars": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "grant": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "queries": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "contentMediaType": "text/sql"
+                    }
+                  }
+                },
+                "required": ["queries"]
+              },
+              "revoke": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "queries": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "contentMediaType": "text/sql"
+                    }
+                  }
+                },
+                "required": ["queries"]
+              }
+            }
+          }
+        },
+        "required": ["id", "display_name", "description", "purpose", "grantable_to"]
+      }
+    },
+    "grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "contentMediaType": "text/sql"
+          },
+          "map": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "skip_if": {
+                  "type": "string"
+                },
+                "principal_id": {
+                  "type": "string"
+                },
+                "principal_type": {
+                  "type": "string"
+                },
+                "entitlement_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "principal_id",
+                "principal_type",
+                "entitlement_id"
+              ]
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "strategy": {
+                "type": "string",
+                "enum": ["offset", "cursor"]
+              },
+              "primary_key": {
+                "type": "string"
+              }
+            },
+            "required": ["strategy", "primary_key"]
+          }
+        },
+        "required": ["query", "map"]
       }
     }
   },

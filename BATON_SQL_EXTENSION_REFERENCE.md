@@ -102,7 +102,7 @@ The extension activates on:
 - Supports Baton's parameterized queries (`?<param>`)
 
 ### 3. Custom Validation Rules
-10 specialized validation rules for common SQL issues:
+13 specialized validation rules for common SQL issues:
 1. Missing comma detection
 2. Missing FROM clause
 3. Unclosed parentheses
@@ -113,6 +113,9 @@ The extension activates on:
 8. Duplicate table aliases
 9. SQL keyword spelling errors
 10. Baton property name typos
+11. Baton parameter validation
+12. Credential mutual exclusion
+13. Trailing comma detection
 
 ### 4. Performance Optimization
 - Caching system for validation results

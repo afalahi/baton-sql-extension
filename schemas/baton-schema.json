@@ -203,6 +203,65 @@
               ]
             }
           },
+          "entitlements": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "vars": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "query": {
+                "type": "string",
+                "contentMediaType": "text/sql",
+                "description": "SQL query to list entitlements"
+              },
+              "map": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "skip_if": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "display_name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "purpose": {
+                      "type": "string",
+                      "enum": ["assignment", "permission", "access"]
+                    },
+                    "grantable_to": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "slug": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "display_name",
+                    "description",
+                    "purpose",
+                    "grantable_to"
+                  ]
+                }
+              }
+            },
+            "required": ["query", "map"]
+          },
           "grants": {
             "type": "array",
             "items": {
@@ -474,6 +533,65 @@
           "grantable_to"
         ]
       }
+    },
+    "entitlements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "query": {
+          "type": "string",
+          "contentMediaType": "text/sql",
+          "description": "SQL query to list entitlements"
+        },
+        "map": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "skip_if": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string",
+                "enum": ["assignment", "permission", "access"]
+              },
+              "grantable_to": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "slug": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "display_name",
+              "description",
+              "purpose",
+              "grantable_to"
+            ]
+          }
+        }
+      },
+      "required": ["query", "map"]
     },
     "grants": {
       "type": "array",

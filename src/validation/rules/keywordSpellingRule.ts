@@ -143,6 +143,12 @@ export const keywordSpellingRule: ValidationRule = {
       const line = lines[i].trim();
       if (!line) continue;
 
+      // Skip YAML keys (lines that are just "word:" with no SQL content after)
+      // This prevents false positives on resource type names like "group:", "user:", etc.
+      if (/^\w+:\s*$/.test(line)) {
+        continue;
+      }
+
       // Convert line to uppercase for comparison
       const upperLine = line.toUpperCase();
 
@@ -161,7 +167,8 @@ export const keywordSpellingRule: ValidationRule = {
 
       // Skip the more aggressive typo detection as it's causing false positives
       // Just check for exact matches of the first word against our keyword list
-      const firstWord = upperLine.split(/\s+/)[0];
+      // Remove leading punctuation (like parentheses) from the first word
+      const firstWord = upperLine.split(/\s+/)[0].replace(/^[^\w]+/, "");
 
       // Skip if it's not at least 3 characters
       if (firstWord.length < 3) continue;

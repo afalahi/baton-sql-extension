@@ -29,6 +29,11 @@ export const credentialMutualExclusionRule: ValidationRule = {
           continue;
         }
 
+        // Skip commented lines
+        if (line.startsWith('#')) {
+          continue;
+        }
+
         if (line.includes('random_password:')) {
           hasRandomPassword = true;
           randomPasswordLine = i;

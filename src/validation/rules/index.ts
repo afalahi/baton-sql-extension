@@ -11,6 +11,7 @@ export { keywordSpellingRule } from './keywordSpellingRule';
 export { propertyNameTyposRule } from './propertyNameTyposRule';
 export { batonParameterValidationRule } from './batonParameterValidationRule';
 export { credentialMutualExclusionRule } from './credentialMutualExclusionRule';
+export { trailingCommaRule } from './trailingCommaRule';
 
 import { ValidationRule } from '../types';
 import { missingCommaRule } from './missingCommaRule';
@@ -25,6 +26,7 @@ import { keywordSpellingRule } from './keywordSpellingRule';
 import { propertyNameTyposRule } from './propertyNameTyposRule';
 import { batonParameterValidationRule } from './batonParameterValidationRule';
 import { credentialMutualExclusionRule } from './credentialMutualExclusionRule';
+import { trailingCommaRule } from './trailingCommaRule';
 
 // Array of all validation rules for easy consumption
 export const allValidationRules: ValidationRule[] = [
@@ -40,4 +42,5 @@ export const allValidationRules: ValidationRule[] = [
   propertyNameTyposRule,
   batonParameterValidationRule,
   credentialMutualExclusionRule,
+  trailingCommaRule,
 ];

@@ -33,10 +33,23 @@ export const invalidJoinRule: ValidationRule = {
                 fromClause.join,
                 { ignoreCase: true }
               );
+              const lines = originalQuery.split('\n');
+              const lineNumber = lineResult ? lineResult.lineNumber : 0;
+              const targetLine = lineNumber < lines.length ? lineNumber : lines.length - 1;
+              const line = lines[targetLine];
+              const endOfLine = line.trimEnd().length;
+
               return {
                 isValid: false,
                 errorMessage: `${fromClause.join} statement missing ON clause. Add 'ON table1.column = table2.column' to specify join condition.`,
                 lineNumber: lineResult ? lineResult.lineNumber : undefined,
+                suggestedFix: {
+                  range: {
+                    start: { line: targetLine, character: endOfLine },
+                    end: { line: targetLine, character: endOfLine }
+                  },
+                  newText: " ON table1.id = table2.id"
+                }
               };
             }
           }
@@ -125,10 +138,22 @@ function checkJoinStringBased(originalQuery: string): ValidationResult {
     }
 
     if (!joinStructure.hasProperOnClause && !joinStructure.hasMissingOnKeyword) {
+      const lines = originalQuery.split('\n');
+      const targetLine = joinStructure.tableLineIndex !== undefined ? joinStructure.tableLineIndex : joinStructure.joinLineIndex;
+      const line = lines[targetLine];
+      const endOfLine = line.trimEnd().length;
+
       return {
         isValid: false,
         errorMessage: "JOIN statement missing ON clause. Add 'ON table1.column = table2.column' to specify join condition.",
         lineNumber: joinStructure.joinLineIndex,
+        suggestedFix: {
+          range: {
+            start: { line: targetLine, character: endOfLine },
+            end: { line: targetLine, character: endOfLine }
+          },
+          newText: " ON table1.id = table2.id"
+        }
       };
     }
   }
@@ -213,6 +238,7 @@ function hasTableNameInLine(line: string): boolean {
     return false;
   }
   // Look for patterns like "table_name alias" or just "table_name"
+  // eslint-disable-next-line security/detect-unsafe-regex -- Safe: no nested quantifiers, bounded by SQL query length
   return trimmed.match(/^[a-zA-Z_][a-zA-Z0-9_]*(\s+[a-zA-Z_][a-zA-Z0-9_]*)?(\s+on\s+|$)/i) !== null;
 }
 

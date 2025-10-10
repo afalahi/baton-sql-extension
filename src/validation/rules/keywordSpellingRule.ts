@@ -156,11 +156,25 @@ export const keywordSpellingRule: ValidationRule = {
       for (const [typo, correction] of Object.entries(commonTypos)) {
         // Use word boundary to avoid false positives
         const typoRegex = new RegExp(`\\b${typo}\\b`, "i");
-        if (typoRegex.test(upperLine)) {
+        const match = upperLine.match(typoRegex);
+        if (match) {
+          // Find the position of the typo in the original line (case-insensitive)
+          const originalMatch = line.match(new RegExp(`\\b${typo}\\b`, "i"));
+          const startChar = originalMatch ? originalMatch.index! : 0;
+          const endChar = startChar + (originalMatch ? originalMatch[0].length : typo.length);
+
           return {
             isValid: false,
             errorMessage: `Possible typo in SQL keyword: "${typo}" - Did you mean "${correction}"?`,
             lineNumber: i,
+            replaceText: originalMatch ? originalMatch[0] : typo,
+            suggestedFix: {
+              range: {
+                start: { line: i, character: startChar },
+                end: { line: i, character: endChar }
+              },
+              newText: correction
+            }
           };
         }
       }
@@ -201,10 +215,23 @@ export const keywordSpellingRule: ValidationRule = {
       if (possibleKeywords.length > 0) {
         const mostSimilar = findMostSimilarWord(firstWord, possibleKeywords);
 
+        // Find the position of the first word in the line
+        const wordMatch = line.match(new RegExp(`\\b${firstWord}\\b`, "i"));
+        const startChar = wordMatch ? wordMatch.index! : 0;
+        const endChar = startChar + firstWord.length;
+
         return {
           isValid: false,
           errorMessage: `Possible typo in SQL keyword: "${firstWord}" - Did you mean "${mostSimilar}"?`,
           lineNumber: i,
+          replaceText: firstWord,
+          suggestedFix: {
+            range: {
+              start: { line: i, character: startChar },
+              end: { line: i, character: endChar }
+            },
+            newText: mostSimilar
+          }
         };
       }
     }

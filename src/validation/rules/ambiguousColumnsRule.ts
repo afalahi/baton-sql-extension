@@ -66,12 +66,11 @@ export const ambiguousColumnsRule: ValidationRule = {
       return { isValid: true };
     } catch (error: any) {
       // Fall back to string-based check
-      const fromMatches = sql
-        .toLowerCase()
-        .match(/\bfrom\b\s+(\w+)(?:\s+as\s+(\w+))?/i);
-      const joinMatches = sql
-        .toLowerCase()
-        .match(/\bjoin\b\s+(\w+)(?:\s+as\s+(\w+))?/gi);
+      const sqlLower = sql.toLowerCase();
+      // eslint-disable-next-line security/detect-unsafe-regex -- Safe: no nested quantifiers, bounded by SQL query length
+      const fromMatches = sqlLower.match(/\bfrom\b\s+(\w+)(?:\s+as\s+(\w+))?/i);
+      // eslint-disable-next-line security/detect-unsafe-regex -- Safe: no nested quantifiers, bounded by SQL query length
+      const joinMatches = sqlLower.match(/\bjoin\b\s+(\w+)(?:\s+as\s+(\w+))?/gi);
 
       if (fromMatches && joinMatches) {
         // Multiple tables, look for SELECT *

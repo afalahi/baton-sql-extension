@@ -64,10 +64,35 @@ export const missingFromRule: ValidationRule = {
         }
 
         const lineResult = findLineWithPattern(originalQuery, "select", { ignoreCase: true });
+
+        // Find the last line of the SELECT columns list to add FROM after it
+        const lines = originalQuery.split('\n');
+        let lastSelectLine = lineResult ? lineResult.lineNumber : 0;
+        for (let i = lastSelectLine; i < lines.length; i++) {
+          const lowerLine = lines[i].trim().toLowerCase();
+          if (lowerLine && lowerLine.match(/^(where|group|order|having|limit|union)/)) {
+            lastSelectLine = i - 1;
+            break;
+          }
+          if (i === lines.length - 1) {
+            lastSelectLine = i;
+          }
+        }
+
+        const line = lines[lastSelectLine];
+        const endOfLine = line.trimEnd().length;
+
         return {
           isValid: false,
           errorMessage: "Missing FROM clause in SELECT statement. Add FROM clause or use system functions/literals if querying constants.",
           lineNumber: lineResult ? lineResult.lineNumber : undefined,
+          suggestedFix: {
+            range: {
+              start: { line: lastSelectLine, character: endOfLine },
+              end: { line: lastSelectLine, character: endOfLine }
+            },
+            newText: "\nFROM table_name"
+          }
         };
       }
       return { isValid: true };

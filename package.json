@@ -1,20 +1,49 @@
 {
   "name": "baton-sql-extension",
   "displayName": "Baton SQL Extension",
-  "description": "Automatically apply the Baton SQL Schema to relevant YAML files",
+  "description": "Yaml and SQL validation, IntelliSense, and schema enforcement for ConductorOne Baton SQL configuration files using LSP",
   "version": "1.0.0",
+  "publisher": "AliFalahi",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages",
+    "Linters",
+    "Formatters"
   ],
+  "keywords": [
+    "baton",
+    "sql",
+    "yaml",
+    "validation",
+    "lsp",
+    "language-server",
+    "schema",
+    "iam",
+    "identity",
+    "intellisense",
+    "ConductorOne",
+    "c1"
+  ],
+  "homepage": "https://github.com/afalahi/baton-sql-extension#readme",
+  "bugs": {
+    "url": "https://github.com/afalahi/baton-sql-extension/issues"
+  },
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
   "icon": "assets/icon.png",
+  "extensionDependencies": [
+    "redhat.vscode-yaml"
+  ],
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:yaml"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/client/extension.js",
   "contributes": {
     "commands": [
       {
@@ -22,22 +51,23 @@
         "title": "Apply Baton SQL Schema to Current File"
       }
     ],
-    "yaml": {
-      "schemas": [
-        {
-          "fileMatch": [
-            "**/baton-sql-*.yaml",
-            "**/baton-sql-*.yml"
-          ],
-          "url": "./schemas/baton-schema.json"
-        }
-      ]
-    }
+    "yamlValidation": [
+      {
+        "fileMatch": [
+          "**/baton-sql-*.yaml",
+          "**/baton-sql-*.yml"
+        ],
+        "url": "./schemas/baton-schema.json"
+      }
+    ]
   },
   "scripts": {
     "build": "webpack --mode production",
     "watch": "webpack --mode development --watch",
-    "package": "vsce package"
+    "package": "vsce package",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "security:audit": "npm audit && npm run lint"
   },
   "repository": {
     "type": "git",
@@ -47,8 +77,15 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.8",
     "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
+    "eslint": "^9.37.0",
+    "eslint-plugin-security": "^3.0.1",
     "ts-loader": "^9.5.2",
     "typescript": "^4.0.0",
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12",
     "webpack": "^5.99.8",
     "webpack-cli": "^6.0.1"
   },

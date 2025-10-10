@@ -79,6 +79,7 @@ export const duplicateAliasesRule: ValidationRule = {
 
     } catch (error: any) {
       // Fall back to string-based check
+      // eslint-disable-next-line security/detect-unsafe-regex -- Safe: no nested quantifiers, bounded by SQL query length
       const aliasRegex = /\b(?:from|join)\s+\w+\s+(?:as\s+)?(\w+)/gi;
       const aliases = new Set();
       const aliasPositions = new Map();

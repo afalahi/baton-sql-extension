@@ -16,12 +16,13 @@
 
 const path = require('path');
 
-module.exports = {
+// Configuration for the language client (VS Code extension)
+const clientConfig = {
   target: 'node',
   mode: 'production',
-  entry: './src/extension.ts',
+  entry: './src/client/extension.ts',
   output: {
-    path: path.resolve(__dirname, 'out'),
+    path: path.resolve(__dirname, 'out', 'client'),
     filename: 'extension.js',
     libraryTarget: 'commonjs2',
   },
@@ -45,3 +46,36 @@ module.exports = {
     ],
   },
 };
+
+// Configuration for the language server
+const serverConfig = {
+  target: 'node',
+  mode: 'production',
+  entry: './src/server/server.ts',
+  output: {
+    path: path.resolve(__dirname, 'out', 'server'),
+    filename: 'server.js',
+    libraryTarget: 'commonjs2',
+  },
+  externals: {
+    vscode: 'commonjs vscode',
+  },
+  resolve: {
+    extensions: ['.ts', '.js'],
+  },
+  module: {
+    rules: [
+      {
+        test: /\.ts$/,
+        exclude: /node_modules/,
+        use: [
+          {
+            loader: 'ts-loader',
+          },
+        ],
+      },
+    ],
+  },
+};
+
+module.exports = [clientConfig, serverConfig];

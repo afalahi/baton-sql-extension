@@ -184,7 +184,7 @@ export const missingCommaRule: ValidationRule = {
       // Check if we've reached the FROM clause
       if (inSelectClause && lowerLine.startsWith("from")) {
         inSelectClause = false;
-        break;
+        continue; // Continue to check next SELECT statement instead of breaking
       }
 
       // Only check lines between SELECT and FROM

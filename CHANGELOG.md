@@ -2,6 +2,12 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.1.1] - 2025-10-10
+
+### Fixed
+- 🐛 Fixed missing comma validation not working for all SQL queries (e.g., `account_provisioning.validate.query`)
+- 🔧 Validation rules now correctly receive the SQL query instead of entire YAML file for line-by-line analysis
+
 ## [1.1.0] - 2025-10-10
 
 ### Changed

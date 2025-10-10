@@ -2,7 +2,7 @@
   "name": "baton-sql-extension",
   "displayName": "Baton SQL Extension",
   "description": "Yaml and SQL validation, IntelliSense, and schema enforcement for ConductorOne Baton SQL configuration files using LSP",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "publisher": "AliFalahi",
   "license": "MIT",
   "engines": {

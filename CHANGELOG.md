@@ -2,6 +2,21 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.1.0] - 2025-10-10
+
+### Changed
+- 🚀 **Reduced extension size by 84%** (13MB → 2MB compressed, 100MB → 6.8MB uncompressed)
+- ⚡ Webpack now bundles all dependencies for faster installation
+- 📝 Updated documentation for accurate editor support clarity
+
+### Fixed
+- 🔒 Resolved 4 security linting warnings for regex patterns (false positives)
+- 🛡️ Added ESLint security configuration with recommended rules
+
+### Improved
+- 📦 Optimized packaging by bundling node-sql-parser and js-yaml with webpack
+- 🧹 Cleaned up .vscodeignore to exclude unnecessary files
+
 ## [1.0.0] - 2025-10-10
 
 ### Added

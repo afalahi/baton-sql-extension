@@ -132,7 +132,8 @@ baton-sql-extension/
 ```
 
 ### Key Benefits of LSP:
-- ✅ Works in VS Code, Vim, Neovim, Emacs, and other LSP-compatible editors
+- ✅ **Native VS Code support** - Install directly from marketplace
+- 🔧 **Other LSP editors** - Server can be configured for Neovim, Emacs, Sublime Text, etc. (manual setup required)
 - ✅ Runs in separate process for better performance
 - ✅ Professional-grade features (hover, completion, quick fixes, navigation)
 

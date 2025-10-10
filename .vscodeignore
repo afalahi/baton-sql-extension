@@ -7,7 +7,6 @@ tsconfig.json
 **/*.map
 **/*.ts
 node_modules/**
-!node_modules/node-sql-parser/**
-!node_modules/js-yaml/**
-!schemas/**
 webpack.config.js
+eslint.config.js
+.eslintrc.json

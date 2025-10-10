@@ -76,6 +76,10 @@ const serverConfig = {
       },
     ],
   },
+  // Optimization to reduce bundle size
+  optimization: {
+    minimize: true,
+  },
 };
 
 module.exports = [clientConfig, serverConfig];

@@ -12,6 +12,8 @@ export { propertyNameTyposRule } from './propertyNameTyposRule';
 export { batonParameterValidationRule } from './batonParameterValidationRule';
 export { credentialMutualExclusionRule } from './credentialMutualExclusionRule';
 export { trailingCommaRule } from './trailingCommaRule';
+export { varsQueryMismatchRule } from './varsQueryMismatchRule';
+export { unconventionalSqlSyntaxRule } from './unconventionalSqlSyntaxRule';
 
 import { ValidationRule } from '../types';
 import { missingCommaRule } from './missingCommaRule';
@@ -27,6 +29,8 @@ import { propertyNameTyposRule } from './propertyNameTyposRule';
 import { batonParameterValidationRule } from './batonParameterValidationRule';
 import { credentialMutualExclusionRule } from './credentialMutualExclusionRule';
 import { trailingCommaRule } from './trailingCommaRule';
+import { varsQueryMismatchRule } from './varsQueryMismatchRule';
+import { unconventionalSqlSyntaxRule } from './unconventionalSqlSyntaxRule';
 
 // Array of all validation rules for easy consumption
 export const allValidationRules: ValidationRule[] = [
@@ -43,4 +47,6 @@ export const allValidationRules: ValidationRule[] = [
   batonParameterValidationRule,
   credentialMutualExclusionRule,
   trailingCommaRule,
+  varsQueryMismatchRule,
+  unconventionalSqlSyntaxRule,
 ];

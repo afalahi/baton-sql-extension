@@ -10,6 +10,10 @@
       "type": "string",
       "description": "Optional description of the application"
     },
+    "description": {
+      "type": "string",
+      "description": "Optional description of the application (alternative to app_description)"
+    },
     "connect": {
       "type": "object",
       "description": "Database connection configuration",
@@ -29,6 +33,66 @@
         }
       },
       "required": ["dsn"]
+    },
+    "actions": {
+      "type": "object",
+      "description": "Custom actions that can be performed on resources (e.g., enable/disable user accounts)",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name for the action"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of what this action does"
+          },
+          "action_type": {
+            "type": "array",
+            "description": "Type of action being performed",
+            "items": {
+              "type": "string",
+              "enum": ["account_enable", "account_disable", "custom"]
+            }
+          },
+          "arguments": {
+            "type": "object",
+            "description": "Arguments required for this action",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name for the argument"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "Data type for the argument",
+                  "enum": ["string", "int", "boolean"]
+                },
+                "required": {
+                  "type": "boolean",
+                  "description": "Whether this argument is required"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Description of the argument"
+                }
+              },
+              "required": ["name", "type", "required", "description"]
+            }
+          },
+          "query": {
+            "type": "string",
+            "contentMediaType": "text/sql",
+            "description": "SQL query to execute for this action"
+          }
+        },
+        "required": ["name", "description", "action_type", "query"]
+      }
     },
     "resource_types": {
       "type": "object",

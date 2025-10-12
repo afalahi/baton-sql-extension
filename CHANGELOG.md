@@ -2,6 +2,49 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.3.0] - 2025-10-10
+
+### Added
+- ✨ **5 New Snippets** for modern Baton SQL patterns
+  - `baton-actions` / `actions` / `bactions` - Custom actions (enable/disable user, etc.)
+  - `baton-credential-rotation` / `credential-rotation` / `bcred` - Password rotation configuration
+  - `baton-entitlement-provisioning` / `static-entitlement-provisioning` / `bentp` - Static entitlement with grant/revoke SQL
+  - `baton-entitlements-query` / `entitlements` / `bentq` - Query-based dynamic entitlements
+  - `baton-expandable-grants` / `expandable-grants` / `bexpand` - Grants with role expansion
+- 🔍 **2 New Validation Rules**
+  - `varsQueryMismatchRule` - Warns when vars defines unused variables or query uses undefined variables
+  - `unconventionalSqlSyntaxRule` - Validates PostgreSQL-specific syntax (ON CONFLICT, RETURNING, gen_salt, crypt, COALESCE, etc.)
+- 📋 **Schema Enhancements**
+  - Added `actions` block for custom user actions (enable/disable accounts)
+  - Added `description` as alternative to `app_description` at root level
+
+### Changed
+- 🔄 **Updated Existing Snippets** to use modern pattern
+  - Replaced `skip_if` with `vars` + parameterized queries using `?<variable>` syntax
+  - `baton-resource-grants` now uses `vars: { resource_id: resource.ID }` pattern
+  - `baton-grants` now uses parameterized query pattern for filtering
+
+### Improved
+- 📝 Snippets now reflect modern Baton SQL best practices
+- 🎯 Better alignment with Oracle EBS and real-world connector patterns
+- 🛡️ Enhanced validation for PostgreSQL-specific features
+
+## [1.2.0] - 2025-10-10
+
+### Added
+- ✨ **YAML Snippets** for rapid scaffolding of Baton SQL configurations
+  - `baton-resource` / `resource-type` / `brt` - Basic resource type with list query
+  - `baton-resource-grants` / `resource-type-grants` / `brtg` - Resource type with grants
+  - `baton-resource-provisioning` / `resource-type-provisioning` / `brtp` - Resource type with account provisioning
+  - `baton-account-provisioning` / `account-provisioning` / `bacc` - Account provisioning block
+  - `baton-grants` / `grants` / `bgrants` - Grants configuration block
+  - `baton-entitlement` / `static-entitlement` / `bent` - Static entitlement definition
+  - `baton-query` / `query` / `bquery` - Query block template
+
+### Changed
+- 📝 Improved snippet discoverability by adding "baton-" prefix alternatives
+- 📝 Enhanced authoring experience with tab-completion scaffolds
+
 ## [1.1.1] - 2025-10-10
 
 ### Fixed

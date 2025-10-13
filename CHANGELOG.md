@@ -2,6 +2,13 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.3.1] - 2025-10-11
+
+### Fixed
+- 🐛 Fixed false positive in missing comma validation for INSERT statements
+- The validation rule no longer incorrectly flags lines like `INSERT INTO table (` or `VALUES (` as needing commas when the opening parenthesis is on its own line
+- Multi-line INSERT statements with opening parentheses now validate correctly
+
 ## [1.3.0] - 2025-10-10
 
 ### Added

@@ -41,7 +41,19 @@ function checkParenthesizedList(lines: string[], startIndex: number): Validation
     }
 
     // Skip the line with opening parenthesis
-    if (line.includes('(') && !previousLineIndex) {
+    // Check if this line has an opening paren with no content after it (e.g., "VALUES (" or "INSERT INTO table (")
+    if (line.includes('(') && previousLineIndex === -1) {
+      // Check if there's actual content after the opening paren
+      const parenIndex = line.indexOf('(');
+      const contentAfterParen = line.substring(parenIndex + 1).trim();
+
+      // If there's no content after the paren (or just whitespace), this is just the opening line
+      // Don't check it for commas, and don't set it as previousLineIndex
+      if (!contentAfterParen) {
+        continue;
+      }
+
+      // If there IS content after the paren (e.g., "VALUES ( col1"), treat this as the first item
       previousLineIndex = i;
       continue;
     }

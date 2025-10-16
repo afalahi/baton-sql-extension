@@ -2,6 +2,14 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.3.2] - 2025-10-16
+
+### Fixed
+- 🐛 Fixed false positive in missing comma validation for SELECT statements with UNION in subqueries
+- The validation rule now properly tracks parenthesis depth to ignore subqueries in JOIN clauses
+- Added support for UNION, INTERSECT, and EXCEPT as SELECT clause terminators
+- SELECT statements containing complex subqueries with UNION operations now validate correctly
+
 ## [1.3.1] - 2025-10-11
 
 ### Fixed

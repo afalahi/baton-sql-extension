@@ -180,6 +180,7 @@ export const missingCommaRule: ValidationRule = {
     let previousLineNeedsComma = false;
     let previousLineIndex = -1;
     let caseDepth = 0;
+    let parenthesisDepth = 0; // Track parenthesis depth to ignore subqueries
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -187,14 +188,21 @@ export const missingCommaRule: ValidationRule = {
 
       const lowerLine = line.toLowerCase();
 
-      // Check if we're starting a SELECT statement
-      if (lowerLine.startsWith("select")) {
+      // Track parenthesis depth to ignore subqueries in JOINs and elsewhere
+      for (const char of line) {
+        if (char === '(') parenthesisDepth++;
+        if (char === ')') parenthesisDepth--;
+      }
+
+      // Check if we're starting a SELECT statement (only at depth 0 - main query)
+      if (lowerLine.startsWith("select") && parenthesisDepth === 0) {
         inSelectClause = true;
         continue;
       }
 
-      // Check if we've reached the FROM clause
-      if (inSelectClause && lowerLine.startsWith("from")) {
+      // Check if we've reached the FROM clause or UNION/INTERSECT/EXCEPT
+      if (inSelectClause && (lowerLine.startsWith("from") || lowerLine.startsWith("union") ||
+          lowerLine.startsWith("intersect") || lowerLine.startsWith("except"))) {
         inSelectClause = false;
         continue; // Continue to check next SELECT statement instead of breaking
       }

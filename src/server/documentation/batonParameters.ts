@@ -49,8 +49,8 @@ export const BATON_SCHEMA_PROPERTIES: Record<string, ParameterDocumentation> = {
   },
   "connect": {
     parameter: "connect",
-    description: "Database connection configuration including DSN, username, and password.",
-    example: "connect:\n  dsn: \"mysql://user:pass@host:3306/db\""
+    description: "Database connection configuration including DSN, username, and password. Credentials can be embedded in DSN or provided separately.",
+    example: "# Option 1: Credentials embedded in DSN\nconnect:\n  dsn: \"mysql://user:pass@host:3306/db\"\n\n# Option 2: Credentials provided separately\nconnect:\n  dsn: \"mysql://host:3306/db\"\n  user: \"dbuser\"\n  password: \"dbpass\""
   },
   "resource_types": {
     parameter: "resource_types",

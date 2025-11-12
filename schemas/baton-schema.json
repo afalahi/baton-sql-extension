@@ -20,10 +20,9 @@
       "properties": {
         "dsn": {
           "type": "string",
-          "description": "Database connection string",
-          "pattern": "^[a-zA-Z0-9]+:\\/\\/.+:.+@.+:.+\\/.+$"
+          "description": "Database connection string"
         },
-        "username": {
+        "user": {
           "type": "string",
           "description": "Database username (optional, can be embedded in DSN)"
         },
@@ -32,7 +31,28 @@
           "description": "Database password (optional, can be embedded in DSN)"
         }
       },
-      "required": ["dsn"]
+      "required": [
+        "dsn"
+      ],
+      "oneOf": [
+        {
+          "description": "Credentials provided separately via user and password properties",
+          "properties": {
+            "dsn": {
+              "pattern": "^[a-zA-Z0-9]+:\\/\\/.+:.+\\/.+$"
+            }
+          },
+          "required": ["user", "password"]
+        },
+        {
+          "description": "Credentials embedded in DSN string",
+          "properties": {
+            "dsn": {
+              "pattern": "^[a-zA-Z0-9]+:\\/\\/.+:.+@.+:.+\\/.+$"
+            }
+          }
+        }
+      ]
     },
     "actions": {
       "type": "object",
@@ -54,7 +74,11 @@
             "description": "Type of action being performed",
             "items": {
               "type": "string",
-              "enum": ["account_enable", "account_disable", "custom"]
+              "enum": [
+                "account_enable",
+                "account_disable",
+                "custom"
+              ]
             }
           },
           "arguments": {
@@ -71,7 +95,11 @@
                 "type": {
                   "type": "string",
                   "description": "Data type for the argument",
-                  "enum": ["string", "int", "boolean"]
+                  "enum": [
+                    "string",
+                    "int",
+                    "boolean"
+                  ]
                 },
                 "required": {
                   "type": "boolean",
@@ -82,7 +110,12 @@
                   "description": "Description of the argument"
                 }
               },
-              "required": ["name", "type", "required", "description"]
+              "required": [
+                "name",
+                "type",
+                "required",
+                "description"
+              ]
             }
           },
           "query": {
@@ -91,7 +124,12 @@
             "description": "SQL query to execute for this action"
           }
         },
-        "required": ["name", "description", "action_type", "query"]
+        "required": [
+          "name",
+          "description",
+          "action_type",
+          "query"
+        ]
       }
     },
     "resource_types": {
@@ -218,7 +256,10 @@
                     }
                   }
                 },
-                "required": ["id", "display_name"]
+                "required": [
+                  "id",
+                  "display_name"
+                ]
               },
               "pagination": {
                 "type": "object",
@@ -228,17 +269,26 @@
                   "strategy": {
                     "type": "string",
                     "description": "Pagination strategy: 'offset' for OFFSET/LIMIT or 'cursor' for cursor-based pagination",
-                    "enum": ["offset", "cursor"]
+                    "enum": [
+                      "offset",
+                      "cursor"
+                    ]
                   },
                   "primary_key": {
                     "type": "string",
                     "description": "Primary key column name used for pagination"
                   }
                 },
-                "required": ["strategy", "primary_key"]
+                "required": [
+                  "strategy",
+                  "primary_key"
+                ]
               }
             },
-            "required": ["query", "map"]
+            "required": [
+              "query",
+              "map"
+            ]
           },
           "static_entitlements": {
             "type": "array",
@@ -262,7 +312,11 @@
                 "purpose": {
                   "type": "string",
                   "description": "Purpose of the entitlement: 'assignment' (group membership), 'permission' (specific action), or 'access' (general access)",
-                  "enum": ["assignment", "permission", "access"]
+                  "enum": [
+                    "assignment",
+                    "permission",
+                    "access"
+                  ]
                 },
                 "grantable_to": {
                   "type": "array",
@@ -297,7 +351,9 @@
                           }
                         }
                       },
-                      "required": ["queries"]
+                      "required": [
+                        "queries"
+                      ]
                     },
                     "revoke": {
                       "type": "object",
@@ -313,10 +369,15 @@
                           }
                         }
                       },
-                      "required": ["queries"]
+                      "required": [
+                        "queries"
+                      ]
                     }
                   },
-                  "required": ["grant", "revoke"]
+                  "required": [
+                    "grant",
+                    "revoke"
+                  ]
                 }
               },
               "required": [
@@ -371,7 +432,11 @@
                     "purpose": {
                       "type": "string",
                       "description": "Purpose of the entitlement: 'assignment', 'permission', or 'access'",
-                      "enum": ["assignment", "permission", "access"]
+                      "enum": [
+                        "assignment",
+                        "permission",
+                        "access"
+                      ]
                     },
                     "grantable_to": {
                       "type": "array",
@@ -395,7 +460,10 @@
                 }
               }
             },
-            "required": ["query", "map"]
+            "required": [
+              "query",
+              "map"
+            ]
           },
           "grants": {
             "type": "array",
@@ -456,7 +524,10 @@
                             "description": "Whether to perform shallow expansion"
                           }
                         },
-                        "required": ["entitlement_ids", "shallow"]
+                        "required": [
+                          "entitlement_ids",
+                          "shallow"
+                        ]
                       }
                     },
                     "required": [
@@ -472,16 +543,25 @@
                   "properties": {
                     "strategy": {
                       "type": "string",
-                      "enum": ["offset", "cursor"]
+                      "enum": [
+                        "offset",
+                        "cursor"
+                      ]
                     },
                     "primary_key": {
                       "type": "string"
                     }
                   },
-                  "required": ["strategy", "primary_key"]
+                  "required": [
+                    "strategy",
+                    "primary_key"
+                  ]
                 }
               },
-              "required": ["query", "map"]
+              "required": [
+                "query",
+                "map"
+              ]
             }
           },
           "account_provisioning": {
@@ -507,7 +587,11 @@
                     "type": {
                       "type": "string",
                       "description": "Data type for validation",
-                      "enum": ["string", "int", "boolean"]
+                      "enum": [
+                        "string",
+                        "int",
+                        "boolean"
+                      ]
                     },
                     "placeholder": {
                       "type": "string",
@@ -518,7 +602,13 @@
                       "description": "Whether this field must be filled out"
                     }
                   },
-                  "required": ["name", "description", "type", "placeholder", "required"]
+                  "required": [
+                    "name",
+                    "description",
+                    "type",
+                    "placeholder",
+                    "required"
+                  ]
                 }
               },
               "credentials": {
@@ -540,7 +630,9 @@
                         }
                       }
                     },
-                    "required": ["no_password"]
+                    "required": [
+                      "no_password"
+                    ]
                   },
                   {
                     "additionalProperties": false,
@@ -565,10 +657,16 @@
                             "description": "Whether this is the preferred credential strategy"
                           }
                         },
-                        "required": ["max_length", "min_length", "preferred"]
+                        "required": [
+                          "max_length",
+                          "min_length",
+                          "preferred"
+                        ]
                       }
                     },
-                    "required": ["random_password"]
+                    "required": [
+                      "random_password"
+                    ]
                   },
                   {
                     "additionalProperties": false,
@@ -583,10 +681,14 @@
                             "description": "Whether this is the preferred credential strategy"
                           }
                         },
-                        "required": ["preferred"]
+                        "required": [
+                          "preferred"
+                        ]
                       }
                     },
-                    "required": ["encrypted_password"]
+                    "required": [
+                      "encrypted_password"
+                    ]
                   }
                 ]
               },
@@ -608,7 +710,9 @@
                     "contentMediaType": "text/sql"
                   }
                 },
-                "required": ["query"]
+                "required": [
+                  "query"
+                ]
               },
               "create": {
                 "type": "object",
@@ -631,10 +735,14 @@
                     }
                   }
                 },
-                "required": ["queries"]
+                "required": [
+                  "queries"
+                ]
               }
             },
-            "required": ["schema"]
+            "required": [
+              "schema"
+            ]
           },
           "credential_rotation": {
             "type": "object",
@@ -660,7 +768,9 @@
                         }
                       }
                     },
-                    "required": ["no_password"]
+                    "required": [
+                      "no_password"
+                    ]
                   },
                   {
                     "additionalProperties": false,
@@ -685,10 +795,16 @@
                             "description": "Whether this is the preferred credential strategy"
                           }
                         },
-                        "required": ["max_length", "min_length", "preferred"]
+                        "required": [
+                          "max_length",
+                          "min_length",
+                          "preferred"
+                        ]
                       }
                     },
-                    "required": ["random_password"]
+                    "required": [
+                      "random_password"
+                    ]
                   },
                   {
                     "additionalProperties": false,
@@ -703,10 +819,14 @@
                             "description": "Whether this is the preferred credential strategy"
                           }
                         },
-                        "required": ["preferred"]
+                        "required": [
+                          "preferred"
+                        ]
                       }
                     },
-                    "required": ["encrypted_password"]
+                    "required": [
+                      "encrypted_password"
+                    ]
                   }
                 ]
               },
@@ -731,13 +851,22 @@
                     }
                   }
                 },
-                "required": ["queries"]
+                "required": [
+                  "queries"
+                ]
               }
             },
-            "required": ["credentials", "update"]
+            "required": [
+              "credentials",
+              "update"
+            ]
           }
         },
-        "required": ["name", "description", "list"]
+        "required": [
+          "name",
+          "description",
+          "list"
+        ]
       }
     },
     "static_entitlements": {
@@ -762,7 +891,11 @@
           "purpose": {
             "type": "string",
             "description": "Purpose of the entitlement: 'assignment' (group membership), 'permission' (specific action), or 'access' (general access)",
-            "enum": ["assignment", "permission", "access"]
+            "enum": [
+              "assignment",
+              "permission",
+              "access"
+            ]
           },
           "grantable_to": {
             "type": "array",
@@ -797,7 +930,9 @@
                     }
                   }
                 },
-                "required": ["queries"]
+                "required": [
+                  "queries"
+                ]
               },
               "revoke": {
                 "type": "object",
@@ -813,7 +948,9 @@
                     }
                   }
                 },
-                "required": ["queries"]
+                "required": [
+                  "queries"
+                ]
               }
             }
           }
@@ -870,7 +1007,11 @@
               "purpose": {
                 "type": "string",
                 "description": "Purpose of the entitlement",
-                "enum": ["assignment", "permission", "access"]
+                "enum": [
+                  "assignment",
+                  "permission",
+                  "access"
+                ]
               },
               "grantable_to": {
                 "type": "array",
@@ -894,7 +1035,10 @@
           }
         }
       },
-      "required": ["query", "map"]
+      "required": [
+        "query",
+        "map"
+      ]
     },
     "grants": {
       "type": "array",
@@ -953,10 +1097,17 @@
                       "description": "Whether to perform shallow expansion"
                     }
                   },
-                  "required": ["entitlement_ids", "shallow"]
+                  "required": [
+                    "entitlement_ids",
+                    "shallow"
+                  ]
                 }
               },
-              "required": ["principal_id", "principal_type", "entitlement_id"]
+              "required": [
+                "principal_id",
+                "principal_type",
+                "entitlement_id"
+              ]
             }
           },
           "pagination": {
@@ -966,19 +1117,32 @@
               "strategy": {
                 "type": "string",
                 "description": "Pagination strategy: 'offset' or 'cursor'",
-                "enum": ["offset", "cursor"]
+                "enum": [
+                  "offset",
+                  "cursor"
+                ]
               },
               "primary_key": {
                 "type": "string",
                 "description": "Primary key column name used for pagination"
               }
             },
-            "required": ["strategy", "primary_key"]
+            "required": [
+              "strategy",
+              "primary_key"
+            ]
           }
         },
-        "required": ["query", "map"]
+        "required": [
+          "query",
+          "map"
+        ]
       }
     }
   },
-  "required": ["app_name", "connect", "resource_types"]
+  "required": [
+    "app_name",
+    "connect",
+    "resource_types"
+  ]
 }

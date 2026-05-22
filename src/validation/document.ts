@@ -1,3 +1,6 @@
+import { parseYaml } from '../utils/yamlUtils';
+import { ParsedQuery } from './parsedQuery';
+
 /**
  * Resolve the `vars` map visible to a query at the given yamlPath.
  *
@@ -103,4 +106,111 @@ export function resolveVarsScope(
   }
 
   return scope;
+}
+
+export interface ConnectConfig {
+  dsn?: string;
+  scheme?: string;
+  host?: string;
+  port?: string;
+  database?: string;
+  user?: string;
+  password?: string;
+  params?: Record<string, string>;
+  databases?: { static?: string[]; discovery_query?: string };
+}
+
+export interface ResourceTypeDef {
+  id: string;
+  name?: string;
+  description?: string;
+  list?: {
+    vars: Map<string, string>;
+    query: ParsedQuery | null;
+    map?: any;
+    pagination?: any;
+    scope?: string;
+  };
+  entitlements?: {
+    vars: Map<string, string>;
+    query: ParsedQuery | null;
+    map?: any;
+    pagination?: any;
+    scope?: string;
+  };
+  grants: Array<{
+    vars: Map<string, string>;
+    query: ParsedQuery | null;
+    map?: any;
+    pagination?: any;
+    scope?: string;
+  }>;
+  staticEntitlements: Array<{
+    id: string;
+    provisioning?: { vars: Map<string, string>; grant?: any; revoke?: any };
+  }>;
+  accountProvisioning?: any;
+  credentialRotation?: any;
+}
+
+export interface ActionDef {
+  id: string;
+  name?: string;
+  arguments?: Record<string, any>;
+  vars?: Map<string, string>;
+  query?: ParsedQuery | null;
+  queries?: ParsedQuery[];
+}
+
+export interface BatonDocument {
+  yaml: any | null;
+  yamlContent: string;
+  connect?: ConnectConfig;
+  resourceTypes: Map<string, ResourceTypeDef>;
+  actions: Map<string, ActionDef>;
+  queries: ParsedQuery[];
+  definedEntitlementIds: {
+    literal: Set<string>;
+    expression: Set<string>;
+  };
+  knownResourceTypeIds: Set<string>;
+}
+
+function emptyDocument(yamlContent: string, yaml: any | null): BatonDocument {
+  return {
+    yaml,
+    yamlContent,
+    resourceTypes: new Map(),
+    actions: new Map(),
+    queries: [],
+    definedEntitlementIds: { literal: new Set(), expression: new Set() },
+    knownResourceTypeIds: new Set(),
+  };
+}
+
+export function buildBatonDocument(yamlContent: string): BatonDocument {
+  const yamlObj = parseYaml(yamlContent);
+  if (!yamlObj || typeof yamlObj !== 'object') {
+    return emptyDocument(yamlContent, null);
+  }
+  const doc = emptyDocument(yamlContent, yamlObj);
+
+  // connect: shallow copy of recognized fields
+  if (yamlObj.connect && typeof yamlObj.connect === 'object') {
+    const c = yamlObj.connect;
+    doc.connect = {
+      dsn: c.dsn,
+      scheme: c.scheme,
+      host: c.host,
+      port: c.port,
+      database: c.database,
+      user: c.user,
+      password: c.password,
+      params: c.params,
+      databases: c.databases,
+    };
+  }
+
+  // resource_types + actions walks come in Tasks 5–7.
+  return doc;
 }

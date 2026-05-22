@@ -1,3 +1,5 @@
+import { RuleContext } from './context';
+
 export interface TextEdit {
   /** The range to replace */
   range: {
@@ -27,8 +29,7 @@ export interface ValidationRule {
   validate: (
     sql: string,
     yamlContent: string,
-    // ctx?: RuleContext   // ← intentionally NOT imported here; see below
-    ctx?: any
+    ctx?: RuleContext
   ) => ValidationResult | ValidationResult[];
 }
 

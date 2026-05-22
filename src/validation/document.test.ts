@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as yaml from 'js-yaml';
-import { resolveVarsScope } from './document';
+import { resolveVarsScope, buildBatonDocument } from './document';
 
 function parse(content: string): any {
   return yaml.load(content);
@@ -232,4 +232,38 @@ actions:
   const scope = resolveVarsScope(doc, ['actions', 'batch', 'queries', 1]);
   assert.equal(scope.get('ts'), 'input.timestamp');
   assert.equal(scope.get('id'), 'string');
+});
+
+test('buildBatonDocument: returns degraded doc on invalid YAML', () => {
+  const doc = buildBatonDocument(': not: valid: yaml: at: all');
+  assert.equal(doc.yaml, null);
+  assert.equal(doc.queries.length, 0);
+  assert.equal(doc.resourceTypes.size, 0);
+  assert.equal(doc.actions.size, 0);
+  assert.equal(doc.definedEntitlementIds.literal.size, 0);
+  assert.equal(doc.definedEntitlementIds.expression.size, 0);
+  assert.equal(doc.knownResourceTypeIds.size, 0);
+  assert.equal(doc.connect, undefined);
+});
+
+test('buildBatonDocument: empty YAML produces empty doc', () => {
+  const doc = buildBatonDocument('');
+  assert.equal(doc.queries.length, 0);
+  assert.equal(doc.resourceTypes.size, 0);
+  assert.equal(doc.connect, undefined);
+});
+
+test('buildBatonDocument: connect populated when present', () => {
+  const doc = buildBatonDocument(`
+app_name: test
+connect:
+  scheme: postgres
+  host: localhost
+  database: app
+  user: u
+  password: p
+`);
+  assert.equal(doc.connect?.scheme, 'postgres');
+  assert.equal(doc.connect?.host, 'localhost');
+  assert.equal(doc.connect?.database, 'app');
 });

@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-05-22-sql-validation-foundation-design.md` (Rollout, "PR2 — Dialect-aware parsing").
 
-**Behavior delta:** YES — this PR changes diagnostic output. SQL that the default (`mysql`) parser previously rejected now parses successfully when `connect.scheme` is set, which means rules that have AST-then-string-fallback paths now stay on the AST path and emit different (typically zero) diagnostics. The "zero behavior change" guarantee from PR1 ends here. See Task 5 for the documented deltas.
+**Behavior delta:** SQL that the default (`mysql`) parser previously rejected now parses successfully when `connect.scheme` is set, which means `ParsedQuery.ast` is now populated for dialect-specific SQL where it was previously `null`. **In practice, this PR's user-visible diagnostic delta on the current rule set is likely zero** — most current rules either don't apply to dialect-specific shapes (e.g., AST-driven rules only fire on SELECT, while postgres `ON CONFLICT` / `RETURNING` are in INSERT/UPDATE/DELETE) or take string-based paths that don't depend on the AST. PR2's real value is **foundational**: PR3+ rules can rely on AST being populated for dialect-specific SQL, and PR7's column-trait coherence checker specifically needs this. The "zero behavior change" guarantee from PR1 strictly ends here (AST state is observably different), but in terms of LSP diagnostics emitted, expect this PR to be effectively invisible to users until later PRs add rules that exploit the now-correct AST.
 
 ---
 
@@ -32,7 +32,7 @@
 - `src/validation/context.ts`, `types.ts`, `sqlValidator.ts`, `pipeline.ts`
 - `src/server/`, `schemas/`, `snippets/`, build/lint config
 
-**Tests after PR2:** 124 → ~134.
+**Tests after PR2:** 124 → ~145 (10 + 4 + 5 + 2 new = 21).
 
 ---
 
@@ -52,12 +52,14 @@ import { schemeToDialect } from './dialect';
 test('schemeToDialect: postgres variants → postgresql', () => {
   assert.equal(schemeToDialect('postgres'), 'postgresql');
   assert.equal(schemeToDialect('postgresql'), 'postgresql');
+  assert.equal(schemeToDialect('pg'), 'postgresql');
   assert.equal(schemeToDialect('PostgreSQL'), 'postgresql');
   assert.equal(schemeToDialect('POSTGRES'), 'postgresql');
 });
 
 test('schemeToDialect: mysql variants → mysql', () => {
   assert.equal(schemeToDialect('mysql'), 'mysql');
+  assert.equal(schemeToDialect('mysql2'), 'mysql');
   assert.equal(schemeToDialect('MySQL'), 'mysql');
   assert.equal(schemeToDialect('mariadb'), 'mysql');
 });
@@ -123,10 +125,12 @@ export function schemeToDialect(scheme?: string): string | undefined {
   if (!scheme) return undefined;
   const s = scheme.toLowerCase().trim();
   switch (s) {
+    case 'pg':
     case 'postgres':
     case 'postgresql':
       return 'postgresql';
     case 'mysql':
+    case 'mysql2':
     case 'mariadb':
       return 'mysql';
     case 'sqlserver':
@@ -313,10 +317,9 @@ export function parseQuery(input: ParseQueryInput): ParsedQuery {
   let ast: any | null = null;
   let astError: string | null = null;
   try {
+    // node-sql-parser accepts opt=undefined as "use default dialect" — no need to branch.
     const options = input.dialect ? { database: input.dialect } : undefined;
-    ast = options
-      ? getParser().astify(normalizedSql, options)
-      : getParser().astify(normalizedSql);
+    ast = getParser().astify(normalizedSql, options);
   } catch (err: any) {
     astError = err?.message ?? String(err);
   }
@@ -405,7 +408,7 @@ resource_types:
   const doc = buildBatonDocument(yaml);
   assert.equal(doc.queries.length, 2);
   for (const q of doc.queries) {
-    assert.equal(q.dialect, 'postgresql', \`yamlPath=\${JSON.stringify(q.yamlPath)} should be postgresql\`);
+    assert.equal(q.dialect, 'postgresql', `yamlPath=${JSON.stringify(q.yamlPath)} should be postgresql`);
   }
 });
 
@@ -592,16 +595,26 @@ const query = buildQueryIfPresent(
 
 Do this for every call site in `buildBatonDocument`.
 
-**Verify with grep:** after the edit, run:
+**Verify with these two counts:**
+
 ```bash
-grep -c "buildQueryIfPresent" src/validation/document.ts
+# Count call sites (excluding the definition).
+grep -c "buildQueryIfPresent(" src/validation/document.ts
 ```
 
-The number of calls should match the number of `dialect` arguments. Alternative verification:
+Then count occurrences of `dialect,` (the trailing argument, with the comma) inside the file:
+
 ```bash
-grep "buildQueryIfPresent" src/validation/document.ts | grep -v ", dialect)" | grep -v "^function buildQueryIfPresent"
+grep -c "^[[:space:]]*dialect," src/validation/document.ts
 ```
-This should produce no output (every call passes `dialect`, except the definition itself).
+
+The two counts should match. If they don't, a `buildQueryIfPresent` call is missing the `dialect` argument — spot-check each call manually using:
+
+```bash
+awk '/buildQueryIfPresent\(/,/\);/' src/validation/document.ts
+```
+
+This prints each call, multi-line and all, so you can visually verify every one ends with `dialect`. The definition itself (one line further down) will also appear in this output — that's expected; it's the function being called, not a call site.
 
 - [ ] **Step 4: Run document tests, verify all pass** (30 prior + 5 new = 35)
 
@@ -634,20 +647,22 @@ when the user has correctly set connect.scheme."
 
 ---
 
-## Task 4: Pipeline behavior-delta smoke test
+## Task 4: Pipeline parse-state smoke tests
 
 **Files:**
 - Modify: `src/validation/pipeline.test.ts`
 
-This task adds a smoke test that demonstrates the behavior change: a postgres `ON CONFLICT` query no longer fails AST parsing when `connect.scheme=postgres`, which means rules that rely on `ast === null` to take their string-fallback path now correctly see the AST.
+These tests verify the **parse-state invariant** that PR2 establishes: a postgres `ON CONFLICT` query has `ast` populated when `connect.scheme=postgres`, and `ast=null` when no scheme is provided. They do **not** assert a diagnostic delta — none of the current rules emit different diagnostics on the test fixture, because (a) AST-driven rules only check SELECT and the fixture is an INSERT, and (b) `unconventionalSqlSyntaxRule` accepts the `ON CONFLICT … DO UPDATE` shape via regex regardless of dialect. PR3+ rules that opt into `ctx.query.ast` will be where these parse-state invariants finally translate into visible improvements.
 
 - [ ] **Step 1: Append the test** to `src/validation/pipeline.test.ts`:
 
 ```ts
-test('pipeline: postgres ON CONFLICT parses cleanly when connect.scheme=postgres', () => {
-  // Behavior delta vs PR1: with connect.scheme=postgres, node-sql-parser
-  // recognizes ON CONFLICT and the AST is populated. Rules with AST-then-
-  // string-fallback paths now stay on the AST path.
+test('pipeline: postgres ON CONFLICT has ast populated when connect.scheme=postgres', () => {
+  // PR2 invariant: with connect.scheme=postgres, node-sql-parser recognizes
+  // ON CONFLICT and ParsedQuery.ast is non-null. PR3+ rules can rely on this.
+  // The test asserts AST/dialect state, NOT a diagnostic delta — the current
+  // rule set produces the same diagnostics here either way (see test comment
+  // below for why).
   const yaml = `
 app_name: t
 connect:
@@ -681,19 +696,21 @@ resource_types:
   assert.notEqual(conflictQ!.ast, null, 'AST should be populated under postgresql dialect');
   assert.equal(conflictQ!.astError, null);
 
-  // The connector itself accepts this ON CONFLICT shape, and our schema
-  // mirrors that. The unconventional-sql-syntax rule recognizes DO UPDATE.
-  // No rule should flag this query.
+  // No current rule should flag this query. (Note: this assertion holds in
+  // PR1 too — see the task narrative above.) The point of this test is to
+  // lock in the AST-populated invariant above, not to demonstrate a
+  // diagnostic delta.
   const conflictDiagnostics = results.filter(r =>
     r.query?.rawSql.includes('ON CONFLICT')
   );
   assert.equal(conflictDiagnostics.length, 0, 'no diagnostics for valid ON CONFLICT');
 });
 
-test('pipeline: postgres ON CONFLICT without connect.scheme — AST still fails (default dialect)', () => {
-  // Lock in the regression that motivates this PR: without a scheme, the
-  // default (mysql) parser rejects ON CONFLICT, leaving ast=null and forcing
-  // any consumer to use string-based fallback logic.
+test('pipeline: postgres ON CONFLICT without connect.scheme — AST is null (default dialect)', () => {
+  // PR2 invariant in the negative direction: without a scheme, the default
+  // (mysql) parser rejects ON CONFLICT, leaving ast=null. This is the same
+  // pre-PR2 behavior; the test exists so a future regression (e.g., switching
+  // the default to postgresql) is caught.
   const yaml = `
 resource_types:
   user:
@@ -809,16 +826,16 @@ Insert this section directly under the `# Change Log` header line (before the ex
 
 ### Changed
 
-- **Dialect-aware SQL parsing.** `connect.scheme` is now passed through to `node-sql-parser` as its `database` option. Postgres-specific syntax (e.g., `ON CONFLICT`, `RETURNING`, `::type` casts), SQL Server `TOP`, and other dialect-specific constructs now parse correctly instead of falling through to brittle string-based fallback code paths in the rules.
+- **Dialect-aware SQL parsing.** `connect.scheme` is now passed through to `node-sql-parser` as its `database` option. Postgres-specific syntax (e.g., `ON CONFLICT`, `RETURNING`, `::type` casts), SQL Server `TOP`, and other dialect-specific constructs now parse correctly. `ParsedQuery.ast` is populated for these queries where it was previously `null`.
 
 ### Added
 
-- New `src/validation/dialect.ts` exporting `schemeToDialect(scheme?)`. Maps `postgres`/`postgresql` → `postgresql`, `mysql`/`mariadb` → `mysql`, `sqlserver`/`mssql`/`tsql` → `transactsql`, plus `sqlite`, `snowflake`, `bigquery`, `redshift`, `db2`. Schemes the connector supports but `node-sql-parser` doesn't (`oracle`, `hdb`) fall back to the default dialect.
+- New `src/validation/dialect.ts` exporting `schemeToDialect(scheme?)`. Recognized schemes: `pg`/`postgres`/`postgresql` → `postgresql`; `mysql`/`mysql2`/`mariadb` → `mysql`; `sqlserver`/`mssql`/`tsql` → `transactsql`; plus `sqlite`, `snowflake`, `bigquery`, `redshift`, `db2`. Schemes the connector supports but `node-sql-parser` doesn't (`oracle`, `hdb`) fall back to the default dialect.
 - `ParsedQuery.dialect` records the dialect used by the parse (undefined = default).
 
 ### Behavior deltas
 
-Users who set `connect.scheme` may see fewer false-positive diagnostics on dialect-specific SQL. Users without `connect.scheme` see no change — the default parser dialect remains the same.
+This release is **foundational** — the current rule set does not produce visibly different LSP diagnostics in PR2. AST-driven rules only fire on SELECT, while the dialect-specific constructs that newly parse correctly are mostly in INSERT/UPDATE/DELETE shapes. The visible improvements will come in subsequent releases as new rules opt into the now-correct AST (e.g., dialect-specific column extraction for column-trait coherence). Users without `connect.scheme` see no change in this release.
 
 ```
 
@@ -864,14 +881,15 @@ Before opening the PR, verify:
 ## PR description template
 
 ```
-PR2: Dialect-aware parsing
+PR2: Dialect-aware parsing (foundational, no visible diagnostic delta)
 
 Spec: docs/superpowers/specs/2026-05-22-sql-validation-foundation-design.md
 Plan: docs/superpowers/plans/2026-05-22-pr2-dialect-aware-parsing.md
 
-This is PR2 of 8 in the SQL validation foundation series. Behavior change:
-the connector's `connect.scheme` value (postgres, mysql, sqlserver, etc.)
-now reaches node-sql-parser, so dialect-specific syntax parses correctly.
+This is PR2 of 8 in the SQL validation foundation series. `connect.scheme`
+now reaches node-sql-parser as its `database` option, so dialect-specific
+SQL (postgres `ON CONFLICT`, SQL Server `TOP`, etc.) parses correctly
+instead of leaving ParsedQuery.ast null.
 
 What's added:
 - src/validation/dialect.ts: schemeToDialect() mapping helper
@@ -882,10 +900,14 @@ What's modified:
 - buildBatonDocument resolves dialect once from connect.scheme and threads
   it through every parseQuery call site.
 
-Behavior deltas:
-- Users with `connect.scheme: postgres` (or mysql/sqlserver/etc.) may see
-  fewer false-positive diagnostics on dialect-specific SQL.
-- Users without `connect.scheme` see no change.
+Important — about behavior deltas:
+- The current rule set does NOT emit different LSP diagnostics in this PR.
+  AST-driven rules only fire on SELECT; the dialect-specific shapes that
+  newly parse correctly are mostly in INSERT/UPDATE/DELETE. The visible
+  improvements arrive when PR3+ rules opt into the now-correct AST.
+- The PR is a precondition for PR7 (column-trait coherence), which extracts
+  columns from CEL expressions — those expressions live in the AST.
+- Users without connect.scheme see no change.
 
 What's NOT changed:
 - Any rule file in src/validation/rules/

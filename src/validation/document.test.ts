@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as yaml from 'js-yaml';
 import { resolveVarsScope, buildBatonDocument } from './document';
+import { schemeToDialect } from './dialect';
 
 function parse(content: string): any {
   return yaml.load(content);
@@ -657,4 +658,111 @@ resource_types:
 `;
   const doc = buildBatonDocument(yaml);
   assert.deepEqual([...doc.knownResourceTypeIds].sort(), ['group', 'role', 'user']);
+});
+
+test('buildBatonDocument: passes connect.scheme dialect to every ParsedQuery', () => {
+  const yaml = `
+app_name: t
+connect:
+  scheme: postgres
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    grants:
+      - query: SELECT 2 FROM g
+        map:
+          - principal_id: ".id"
+            principal_type: user
+            entitlement_id: m
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.equal(doc.queries.length, 2);
+  for (const q of doc.queries) {
+    assert.equal(q.dialect, 'postgresql', `yamlPath=${JSON.stringify(q.yamlPath)} should be postgresql`);
+  }
+});
+
+test('buildBatonDocument: connect.scheme=mysql → dialect=mysql', () => {
+  const yaml = `
+connect:
+  scheme: mysql
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.equal(doc.queries[0].dialect, 'mysql');
+});
+
+test('buildBatonDocument: connect.scheme=oracle → dialect=undefined (no parser support)', () => {
+  const yaml = `
+connect:
+  scheme: oracle
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.equal(doc.queries[0].dialect, undefined);
+});
+
+test('buildBatonDocument: no connect.scheme → dialect=undefined', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.equal(doc.queries[0].dialect, undefined);
+});
+
+test('buildBatonDocument: ON CONFLICT in account_provisioning.create.queries parses with postgres scheme', () => {
+  const yaml = `
+connect:
+  scheme: postgres
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    account_provisioning:
+      schema:
+        - { name: username, description: u, type: string, placeholder: x, required: true }
+      credentials:
+        random_password: { preferred: true }
+      validate:
+        query: "SELECT 1"
+      create:
+        queries:
+          - "INSERT INTO users (id) VALUES (1) ON CONFLICT DO NOTHING"
+`;
+  const doc = buildBatonDocument(yaml);
+  const conflictQ = doc.queries.find(q => q.rawSql.includes('ON CONFLICT'));
+  assert.ok(conflictQ);
+  assert.equal(conflictQ!.dialect, 'postgresql');
+  assert.notEqual(conflictQ!.ast, null, 'ON CONFLICT should parse with postgres dialect');
+  assert.equal(conflictQ!.astError, null);
 });

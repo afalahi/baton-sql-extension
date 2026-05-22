@@ -85,3 +85,62 @@ test('parseQuery: yamlPath mixed string/number elements preserved', () => {
   });
   assert.deepEqual(q.yamlPath, ['resource_types', 'user', 'grants', 2, 'query']);
 });
+
+test('parseQuery: dialect postgresql parses ON CONFLICT', () => {
+  const q = parseQuery({
+    rawSql: 'INSERT INTO t (id) VALUES (1) ON CONFLICT DO NOTHING',
+    yamlPath: [],
+    startOffset: 0,
+    endOffset: 0,
+    varsScope: new Map(),
+    dialect: 'postgresql',
+  });
+  assert.notEqual(q.ast, null, 'postgresql dialect should parse ON CONFLICT');
+  assert.equal(q.astError, null);
+  assert.equal(q.dialect, 'postgresql');
+});
+
+test('parseQuery: default dialect (no dialect arg) fails ON CONFLICT', () => {
+  // node-sql-parser's default dialect is mysql, which does not understand
+  // postgres' ON CONFLICT clause. This test locks in the regression that
+  // would otherwise creep in if someone forgot to pass dialect.
+  const q = parseQuery({
+    rawSql: 'INSERT INTO t (id) VALUES (1) ON CONFLICT DO NOTHING',
+    yamlPath: [],
+    startOffset: 0,
+    endOffset: 0,
+    varsScope: new Map(),
+  });
+  assert.equal(q.ast, null);
+  assert.ok(q.astError, 'astError should be populated');
+  assert.equal(q.dialect, undefined);
+});
+
+test('parseQuery: dialect transactsql parses SQL Server TOP', () => {
+  const q = parseQuery({
+    rawSql: 'SELECT TOP 5 id FROM users',
+    yamlPath: [],
+    startOffset: 0,
+    endOffset: 0,
+    varsScope: new Map(),
+    dialect: 'transactsql',
+  });
+  assert.notEqual(q.ast, null);
+  assert.equal(q.dialect, 'transactsql');
+});
+
+test('parseQuery: clean SELECT parses regardless of dialect', () => {
+  // Common SELECTs that any dialect should handle.
+  for (const dialect of [undefined, 'mysql', 'postgresql', 'transactsql', 'sqlite']) {
+    const q = parseQuery({
+      rawSql: 'SELECT id, name FROM users WHERE id = 1',
+      yamlPath: [],
+      startOffset: 0,
+      endOffset: 0,
+      varsScope: new Map(),
+      dialect,
+    });
+    assert.notEqual(q.ast, null, `dialect=${dialect} should parse the clean SELECT`);
+    assert.equal(q.dialect, dialect);
+  }
+});

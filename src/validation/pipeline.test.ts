@@ -237,3 +237,87 @@ test('pipeline smoke: degraded doc (invalid YAML) emits no rule diagnostics', ()
   const { results } = validateDocument(': : : :');
   assert.equal(results.length, 0);
 });
+
+test('pipeline: postgres ON CONFLICT has ast populated when connect.scheme=postgres', () => {
+  // PR2 invariant: with connect.scheme=postgres, node-sql-parser recognizes
+  // ON CONFLICT and ParsedQuery.ast is non-null. PR3+ rules can rely on this.
+  // The test asserts AST/dialect state, NOT a diagnostic delta — the current
+  // rule set produces the same diagnostics here either way (see test comment
+  // below for why).
+  const yaml = `
+app_name: t
+connect:
+  scheme: postgres
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT id, name FROM users
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    account_provisioning:
+      schema:
+        - { name: username, description: u, type: string, placeholder: x, required: true }
+      credentials:
+        random_password: { preferred: true }
+      validate:
+        query: "SELECT 1"
+      create:
+        queries:
+          - "INSERT INTO users (id, name) VALUES (1, 'x') ON CONFLICT (id) DO UPDATE SET name = 'x'"
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { document, results } = validateDocument(yaml);
+
+  const conflictQ = document.queries.find(q => q.rawSql.includes('ON CONFLICT'));
+  assert.ok(conflictQ, 'should locate the ON CONFLICT query');
+  assert.equal(conflictQ!.dialect, 'postgresql');
+  assert.notEqual(conflictQ!.ast, null, 'AST should be populated under postgresql dialect');
+  assert.equal(conflictQ!.astError, null);
+
+  // No current rule should flag this query. (Note: this assertion holds in
+  // PR1 too — see the task narrative above.) The point of this test is to
+  // lock in the AST-populated invariant above, not to demonstrate a
+  // diagnostic delta.
+  const conflictDiagnostics = results.filter(r =>
+    r.query?.rawSql.includes('ON CONFLICT')
+  );
+  assert.equal(conflictDiagnostics.length, 0, 'no diagnostics for valid ON CONFLICT');
+});
+
+test('pipeline: postgres ON CONFLICT without connect.scheme — AST is null (default dialect)', () => {
+  // PR2 invariant in the negative direction: without a scheme, the default
+  // (mysql) parser rejects ON CONFLICT, leaving ast=null. This is the same
+  // pre-PR2 behavior; the test exists so a future regression (e.g., switching
+  // the default to postgresql) is caught.
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT id, name FROM users
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    account_provisioning:
+      schema:
+        - { name: username, description: u, type: string, placeholder: x, required: true }
+      credentials:
+        random_password: { preferred: true }
+      validate:
+        query: "SELECT 1"
+      create:
+        queries:
+          - "INSERT INTO users (id) VALUES (1) ON CONFLICT DO NOTHING"
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { document } = validateDocument(yaml);
+  const conflictQ = document.queries.find(q => q.rawSql.includes('ON CONFLICT'));
+  assert.ok(conflictQ);
+  assert.equal(conflictQ!.dialect, undefined);
+  assert.equal(conflictQ!.ast, null);
+  assert.ok(conflictQ!.astError, 'astError should be populated when parse fails');
+});

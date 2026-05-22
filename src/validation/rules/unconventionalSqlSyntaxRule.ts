@@ -11,11 +11,14 @@ export const unconventionalSqlSyntaxRule: ValidationRule = {
     const lines = originalQuery.split('\n');
     const lowerSql = sql.toLowerCase();
 
-    // Check for ON CONFLICT without DO NOTHING or DO UPDATE
+    // Check for ON CONFLICT without DO NOTHING or DO UPDATE.
+    // PostgreSQL allows an optional conflict target between ON CONFLICT and the
+    // action, e.g. `ON CONFLICT (id) DO UPDATE SET ...`, `ON CONFLICT ON CONSTRAINT pk_users DO NOTHING`.
+    // The action must eventually follow; if it doesn't, flag it.
     if (lowerSql.includes('on conflict')) {
-      const onConflictPattern = /on\s+conflict(?!\s+(do\s+nothing|do\s+update))/i;
-      if (onConflictPattern.test(sql)) {
-        // Find the line with ON CONFLICT
+      const onConflictWithAction =
+        /on\s+conflict\b[\s\S]*?\b(do\s+nothing|do\s+update)\b/i;
+      if (!onConflictWithAction.test(sql)) {
         for (let i = 0; i < lines.length; i++) {
           if (lines[i].toLowerCase().includes('on conflict')) {
             return {

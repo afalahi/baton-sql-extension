@@ -15,8 +15,9 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Import validation logic
-import { validateSql, clearValidationCache } from '../validation';
-import { parseYaml, findSQLQueries, isBatonSQLFilePath, hashString } from '../utils/serverUtils';
+import { clearValidationCache } from '../validation';
+import { validateDocument, documentCache, uriToHash, evictUri } from '../validation/pipeline';
+import { isBatonSQLFilePath, hashString } from '../utils/serverUtils';
 
 // Import LSP feature providers
 import { provideHover } from './features/hoverProvider';
@@ -30,9 +31,6 @@ const connection = createConnection(ProposedFeatures.all);
 
 // Create a text document manager
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
-
-// Cache for file digests to detect changes
-const fileDigests = new Map<string, string>();
 
 // Symbol index for go-to-definition
 const symbolIndex = new SymbolIndex();
@@ -95,90 +93,101 @@ connection.onInitialized(() => {
 async function validateTextDocument(textDocument: TextDocument): Promise<void> {
   const uri = textDocument.uri;
 
-  // Check if this is a Baton SQL file
   if (!isBatonSQLFilePath(uri)) {
     return;
   }
 
-  // Check if file has changed to avoid unnecessary processing
   const content = textDocument.getText();
-  const currentDigest = hashString(content);
-  const lastDigest = fileDigests.get(uri);
+  const newHash = hashString(content);
+  const previousHash = uriToHash.get(uri);
 
-  if (lastDigest === currentDigest) {
-    return; // No changes, skip validation
+  // If this URI's content hasn't changed since last validation, nothing to do.
+  if (previousHash === newHash) {
+    return;
   }
 
-  fileDigests.set(uri, currentDigest);
+  uriToHash.set(uri, newHash);
+
+  // The URI's content changed: only drop the previous hash's cache slot if no
+  // OTHER URI still references it. This protects multi-URI sessions where two
+  // workspaces have identical content cached under one hash.
+  if (previousHash !== undefined) {
+    let stillReferenced = false;
+    for (const h of uriToHash.values()) {
+      if (h === previousHash) { stillReferenced = true; break; }
+    }
+    if (!stillReferenced) {
+      documentCache.delete(previousHash);
+    }
+  }
+
+  // Cache hit (same content under a different URI): reuse the diagnostics.
+  const cached = documentCache.get(newHash);
+  if (cached) {
+    connection.sendDiagnostics({ uri, diagnostics: cached });
+    return;
+  }
 
   try {
-    // Clear previous diagnostic fixes for this document
     clearDiagnosticFixes(uri);
 
-    // Parse YAML content
-    const yamlObject = parseYaml(content);
+    const { document, results } = validateDocument(content, (ruleName, error) => {
+      const msg = error instanceof Error ? (error.stack || error.message) : String(error);
+      connection.console.error(`[Baton SQL] rule '${ruleName}' threw while validating ${uri}: ${msg}`);
+    });
 
-    if (!yamlObject) {
-      return; // Invalid YAML, let YAML language server handle it
-    }
-
-    // Find all SQL queries in the document
-    const sqlQueries = findSQLQueries(content, yamlObject);
-
-    if (sqlQueries.length === 0) {
-      // No SQL queries found, clear any existing diagnostics
+    // No queries found AND no document-scope failures? Send empty and cache.
+    if (results.length === 0) {
+      documentCache.set(newHash, []);
       connection.sendDiagnostics({ uri, diagnostics: [] });
+      symbolIndex.indexDocument(textDocument);
       return;
     }
 
-    // Validate each SQL query
+    // Convert PipelineResult[] → Diagnostic[].
     const allDiagnostics: Diagnostic[] = [];
+    for (const pr of results) {
+      const r = pr.result;
+      const startOffset = pr.query?.startOffset ?? 0;
+      const endOffset = pr.query?.endOffset ?? content.length;
 
-    for (const queryInfo of sqlQueries) {
-      const validationResults = validateSql(queryInfo.query, content);
+      let range = {
+        start: textDocument.positionAt(startOffset),
+        end: textDocument.positionAt(endOffset),
+      };
 
-      if (validationResults.length > 0) {
-        for (const result of validationResults) {
-          const diagnostic: Diagnostic = {
-            severity: DiagnosticSeverity.Error,
-            range: {
-              start: textDocument.positionAt(queryInfo.startPosition),
-              end: textDocument.positionAt(queryInfo.endPosition)
-            },
-            message: result.errorMessage || 'SQL validation error',
-            source: 'baton-sql'
-          };
-
-          // If we have a specific line number from the validation result, adjust the range
-          if (result.lineNumber !== undefined) {
-            const lines = content.split('\n');
-            let offset = 0;
-            for (let i = 0; i < result.lineNumber && i < lines.length; i++) {
-              offset += lines[i].length + 1; // +1 for newline
-            }
-            diagnostic.range = {
-              start: textDocument.positionAt(offset),
-              end: textDocument.positionAt(offset + (lines[result.lineNumber]?.length || 0))
-            };
-          } else if (result.position !== undefined) {
-            diagnostic.range = {
-              start: textDocument.positionAt(queryInfo.startPosition + result.position),
-              end: textDocument.positionAt(queryInfo.startPosition + result.position + 1)
-            };
-          }
-
-          allDiagnostics.push(diagnostic);
-
-          // Store suggested fix if available
-          if (result.suggestedFix) {
-            storeDiagnosticFix(uri, diagnostic, result.suggestedFix);
-          }
+      // lineNumber: absolute line in the YAML document (today's semantic).
+      if (r.lineNumber !== undefined) {
+        const lines = content.split('\n');
+        let offset = 0;
+        for (let i = 0; i < r.lineNumber && i < lines.length; i++) {
+          offset += lines[i].length + 1;
         }
+        range = {
+          start: textDocument.positionAt(offset),
+          end: textDocument.positionAt(offset + (lines[r.lineNumber]?.length || 0)),
+        };
+      } else if (r.position !== undefined) {
+        range = {
+          start: textDocument.positionAt(startOffset + r.position),
+          end: textDocument.positionAt(startOffset + r.position + 1),
+        };
+      }
+
+      const diagnostic: Diagnostic = {
+        severity: DiagnosticSeverity.Error,
+        range,
+        message: r.errorMessage || 'SQL validation error',
+        source: 'baton-sql',
+      };
+      allDiagnostics.push(diagnostic);
+
+      if (r.suggestedFix) {
+        storeDiagnosticFix(uri, diagnostic, r.suggestedFix);
       }
     }
 
-    // Deduplicate diagnostics by message and range
-    // This prevents duplicate errors when the same query appears multiple times in the YAML
+    // Dedupe by (message, start.line, start.character) — verbatim from v1.4.0.
     const uniqueDiagnostics = allDiagnostics.filter((diagnostic, index, self) =>
       index === self.findIndex(d =>
         d.message === diagnostic.message &&
@@ -187,10 +196,8 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
       )
     );
 
-    // Send deduplicated diagnostics to the client
+    documentCache.set(newHash, uniqueDiagnostics);
     connection.sendDiagnostics({ uri, diagnostics: uniqueDiagnostics });
-
-    // Update symbol index for go-to-definition
     symbolIndex.indexDocument(textDocument);
 
   } catch (error: any) {
@@ -210,7 +217,7 @@ documents.onDidOpen(async (event) => {
 
 // Document close handler
 documents.onDidClose((event) => {
-  fileDigests.delete(event.document.uri);
+  evictUri(event.document.uri);
   symbolIndex.clearDocument(event.document.uri);
   // Clear diagnostics for closed document
   connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
@@ -220,7 +227,8 @@ documents.onDidClose((event) => {
 connection.onDidChangeConfiguration(() => {
   // Clear validation cache when configuration changes
   clearValidationCache();
-  fileDigests.clear();
+  documentCache.clear();
+  uriToHash.clear();
 
   // Revalidate all open documents
   documents.all().forEach(validateTextDocument);

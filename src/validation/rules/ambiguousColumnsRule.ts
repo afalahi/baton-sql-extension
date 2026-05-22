@@ -44,10 +44,14 @@ export const ambiguousColumnsRule: ValidationRule = {
         // If multiple tables, check for SELECT *
         if (tableCount > 1) {
           const columns = selectAst.columns;
+          // node-sql-parser represents `*` either as the string "*" (older) or
+          // as a column_ref with column === "*" (current). Match both.
+          const isUnqualifiedStar = (col: any) =>
+            col?.expr === "*" ||
+            (col?.expr?.type === "column_ref" && col.expr.column === "*" && !col.expr.table);
           if (
             columns === "*" ||
-            (Array.isArray(columns) &&
-              columns.some((col: any) => col.expr === "*"))
+            (Array.isArray(columns) && columns.some(isUnqualifiedStar))
           ) {
             const lineResult = findLineWithPattern(originalQuery, "select *", { ignoreCase: true });
             return {

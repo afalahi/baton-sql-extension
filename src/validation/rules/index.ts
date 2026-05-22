@@ -10,7 +10,6 @@ export { duplicateAliasesRule } from './duplicateAliasesRule';
 export { keywordSpellingRule } from './keywordSpellingRule';
 export { propertyNameTyposRule } from './propertyNameTyposRule';
 export { batonParameterValidationRule } from './batonParameterValidationRule';
-export { credentialMutualExclusionRule } from './credentialMutualExclusionRule';
 export { trailingCommaRule } from './trailingCommaRule';
 export { varsQueryMismatchRule } from './varsQueryMismatchRule';
 export { unconventionalSqlSyntaxRule } from './unconventionalSqlSyntaxRule';
@@ -27,12 +26,14 @@ import { duplicateAliasesRule } from './duplicateAliasesRule';
 import { keywordSpellingRule } from './keywordSpellingRule';
 import { propertyNameTyposRule } from './propertyNameTyposRule';
 import { batonParameterValidationRule } from './batonParameterValidationRule';
-import { credentialMutualExclusionRule } from './credentialMutualExclusionRule';
 import { trailingCommaRule } from './trailingCommaRule';
 import { varsQueryMismatchRule } from './varsQueryMismatchRule';
 import { unconventionalSqlSyntaxRule } from './unconventionalSqlSyntaxRule';
 
-// Array of all validation rules for easy consumption
+// Array of all validation rules for easy consumption.
+// Note: the connector's AccountCredentials struct allows multiple credential
+// strategies simultaneously (preferred: true picks the default), so we do NOT
+// flag configs with multiple credentials — see baton-sql/pkg/bsql/config.go.
 export const allValidationRules: ValidationRule[] = [
   missingCommaRule,
   missingFromRule,
@@ -45,7 +46,6 @@ export const allValidationRules: ValidationRule[] = [
   keywordSpellingRule,
   propertyNameTyposRule,
   batonParameterValidationRule,
-  credentialMutualExclusionRule,
   trailingCommaRule,
   varsQueryMismatchRule,
   unconventionalSqlSyntaxRule,

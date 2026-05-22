@@ -1,1142 +1,31 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema",
   "type": "object",
+  "description": "Baton SQL connector configuration. Mirrors github.com/conductorone/baton-sql/pkg/bsql.Config.",
   "properties": {
     "app_name": {
       "type": "string",
-      "description": "Application name for the Finance DB connector"
+      "description": "Application name that identifies the connector"
     },
     "app_description": {
       "type": "string",
       "description": "Optional description of the application"
     },
-    "description": {
-      "type": "string",
-      "description": "Optional description of the application (alternative to app_description)"
-    },
     "connect": {
-      "type": "object",
-      "description": "Database connection configuration",
-      "properties": {
-        "dsn": {
-          "type": "string",
-          "description": "Database connection string"
-        },
-        "user": {
-          "type": "string",
-          "description": "Database username (optional, can be embedded in DSN)"
-        },
-        "password": {
-          "type": "string",
-          "description": "Database password (optional, can be embedded in DSN)"
-        }
-      },
-      "required": [
-        "dsn"
-      ],
-      "oneOf": [
-        {
-          "description": "Credentials provided separately via user and password properties",
-          "properties": {
-            "dsn": {
-              "pattern": "^[a-zA-Z0-9]+:\\/\\/.+:.+\\/.+$"
-            }
-          },
-          "required": ["user", "password"]
-        },
-        {
-          "description": "Credentials embedded in DSN string",
-          "properties": {
-            "dsn": {
-              "pattern": "^[a-zA-Z0-9]+:\\/\\/.+:.+@.+:.+\\/.+$"
-            }
-          }
-        }
-      ]
-    },
-    "actions": {
-      "type": "object",
-      "description": "Custom actions that can be performed on resources (e.g., enable/disable user accounts)",
-      "additionalProperties": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Display name for the action"
-          },
-          "description": {
-            "type": "string",
-            "description": "Description of what this action does"
-          },
-          "action_type": {
-            "type": "array",
-            "description": "Type of action being performed",
-            "items": {
-              "type": "string",
-              "enum": [
-                "account_enable",
-                "account_disable",
-                "custom"
-              ]
-            }
-          },
-          "arguments": {
-            "type": "object",
-            "description": "Arguments required for this action",
-            "additionalProperties": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "description": "Display name for the argument"
-                },
-                "type": {
-                  "type": "string",
-                  "description": "Data type for the argument",
-                  "enum": [
-                    "string",
-                    "int",
-                    "boolean"
-                  ]
-                },
-                "required": {
-                  "type": "boolean",
-                  "description": "Whether this argument is required"
-                },
-                "description": {
-                  "type": "string",
-                  "description": "Description of the argument"
-                }
-              },
-              "required": [
-                "name",
-                "type",
-                "required",
-                "description"
-              ]
-            }
-          },
-          "query": {
-            "type": "string",
-            "contentMediaType": "text/sql",
-            "description": "SQL query to execute for this action"
-          }
-        },
-        "required": [
-          "name",
-          "description",
-          "action_type",
-          "query"
-        ]
-      }
+      "$ref": "#/definitions/DatabaseConfig"
     },
     "resource_types": {
       "type": "object",
-      "description": "Define resource types (users, groups, roles, etc.) that can be synced from your database",
+      "description": "Resource types (users, groups, roles, etc.) configured for the connector",
       "additionalProperties": {
-        "type": "object",
-        "additionalProperties": false,
-        "patternProperties": {
-          "^static_entitlement$": {
-            "type": "array",
-            "errorMessage": "Did you mean 'static_entitlements'?"
-          }
-        },
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Display name of the resource type"
-          },
-          "description": {
-            "type": "string",
-            "description": "Description of the resource type"
-          },
-          "list": {
-            "type": "object",
-            "description": "Configuration for listing resources of this type from the database",
-            "additionalProperties": false,
-            "properties": {
-              "query": {
-                "type": "string",
-                "contentMediaType": "text/sql",
-                "description": "SQL query to list resources"
-              },
-              "map": {
-                "type": "object",
-                "description": "Map database columns to Baton resource fields",
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "description": "Field mapping for resource ID"
-                  },
-                  "display_name": {
-                    "type": "string",
-                    "description": "Field mapping for display name"
-                  },
-                  "description": {
-                    "type": "string",
-                    "description": "Field mapping for description"
-                  },
-                  "traits": {
-                    "type": "object",
-                    "description": "Special attributes for different resource types (user, group, etc.)",
-                    "properties": {
-                      "user": {
-                        "type": "object",
-                        "description": "User-specific attributes for resources representing user accounts",
-                        "additionalProperties": false,
-                        "properties": {
-                          "status": {
-                            "type": "string",
-                            "description": "User account status"
-                          },
-                          "status_details": {
-                            "type": "string",
-                            "description": "Detailed status information"
-                          },
-                          "login": {
-                            "type": "string",
-                            "description": "Login identifier for the user"
-                          },
-                          "emails": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            },
-                            "description": "List of email addresses"
-                          },
-                          "profile": {
-                            "type": "object",
-                            "additionalProperties": true,
-                            "description": "User profile details - can contain any properties of any type"
-                          },
-                          "account_type": {
-                            "type": "string",
-                            "description": "Type of user account"
-                          },
-                          "employee_ids": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            },
-                            "description": "List of employee IDs"
-                          },
-                          "last_login": {
-                            "type": "string",
-                            "description": "Last login timestamp"
-                          },
-                          "manager_id": {
-                            "type": "string",
-                            "description": "ID of the user's manager"
-                          },
-                          "manager_email": {
-                            "type": "string",
-                            "description": "Email of the user's manager"
-                          }
-                        },
-                        "required": [
-                          "login",
-                          "emails"
-                        ]
-                      }
-                    },
-                    "additionalProperties": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "profile": {
-                          "type": "object",
-                          "additionalProperties": true,
-                          "description": "Profile details - can contain any properties of any type"
-                        }
-                      }
-                    }
-                  }
-                },
-                "required": [
-                  "id",
-                  "display_name"
-                ]
-              },
-              "pagination": {
-                "type": "object",
-                "description": "Configure pagination for large result sets",
-                "additionalProperties": false,
-                "properties": {
-                  "strategy": {
-                    "type": "string",
-                    "description": "Pagination strategy: 'offset' for OFFSET/LIMIT or 'cursor' for cursor-based pagination",
-                    "enum": [
-                      "offset",
-                      "cursor"
-                    ]
-                  },
-                  "primary_key": {
-                    "type": "string",
-                    "description": "Primary key column name used for pagination"
-                  }
-                },
-                "required": [
-                  "strategy",
-                  "primary_key"
-                ]
-              }
-            },
-            "required": [
-              "query",
-              "map"
-            ]
-          },
-          "static_entitlements": {
-            "type": "array",
-            "description": "Statically defined entitlements that don't come from database queries. Example:\nstatic_entitlements:\n  - id: \"admin\"\n    display_name: \"Administrator\"",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "description": "Unique identifier for this entitlement"
-                },
-                "display_name": {
-                  "type": "string",
-                  "description": "Human-readable name shown in the Baton UI"
-                },
-                "description": {
-                  "type": "string",
-                  "description": "Detailed description of what this entitlement grants"
-                },
-                "purpose": {
-                  "type": "string",
-                  "description": "Purpose of the entitlement: 'assignment' (group membership), 'permission' (specific action), or 'access' (general access)",
-                  "enum": [
-                    "assignment",
-                    "permission",
-                    "access"
-                  ]
-                },
-                "grantable_to": {
-                  "type": "array",
-                  "description": "List of resource type names that can receive this entitlement (e.g., ['user'])",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "provisioning": {
-                  "type": "object",
-                  "description": "Optional SQL queries to execute when granting or revoking this entitlement",
-                  "additionalProperties": false,
-                  "properties": {
-                    "vars": {
-                      "type": "object",
-                      "description": "Variables available in grant/revoke queries (e.g., principal.ID, resource.ID)",
-                      "additionalProperties": {
-                        "type": "string"
-                      }
-                    },
-                    "grant": {
-                      "type": "object",
-                      "description": "SQL queries to execute when granting this entitlement",
-                      "additionalProperties": false,
-                      "properties": {
-                        "queries": {
-                          "type": "array",
-                          "description": "Array of SQL statements to execute in order",
-                          "items": {
-                            "type": "string",
-                            "contentMediaType": "text/sql"
-                          }
-                        }
-                      },
-                      "required": [
-                        "queries"
-                      ]
-                    },
-                    "revoke": {
-                      "type": "object",
-                      "description": "SQL queries to execute when revoking this entitlement",
-                      "additionalProperties": false,
-                      "properties": {
-                        "queries": {
-                          "type": "array",
-                          "description": "Array of SQL statements to execute in order",
-                          "items": {
-                            "type": "string",
-                            "contentMediaType": "text/sql"
-                          }
-                        }
-                      },
-                      "required": [
-                        "queries"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "grant",
-                    "revoke"
-                  ]
-                }
-              },
-              "required": [
-                "id",
-                "display_name",
-                "description",
-                "purpose",
-                "grantable_to"
-              ]
-            }
-          },
-          "entitlements": {
-            "type": "object",
-            "description": "Query-based entitlements loaded from the database (e.g., groups, roles)",
-            "additionalProperties": false,
-            "properties": {
-              "vars": {
-                "type": "object",
-                "description": "Variables available in the query (e.g., resource.ID for parameterized queries)",
-                "additionalProperties": {
-                  "type": "string"
-                }
-              },
-              "query": {
-                "type": "string",
-                "contentMediaType": "text/sql",
-                "description": "SQL query to list entitlements"
-              },
-              "map": {
-                "type": "array",
-                "description": "Map query result columns to entitlement fields. Can have multiple mappings with conditional logic.",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "skip_if": {
-                      "type": "string",
-                      "description": "Conditional expression - skip this mapping if the condition is true (e.g., 'status == \"disabled\"')"
-                    },
-                    "id": {
-                      "type": "string",
-                      "description": "Expression or column name for the entitlement ID"
-                    },
-                    "display_name": {
-                      "type": "string",
-                      "description": "Expression or column name for the display name"
-                    },
-                    "description": {
-                      "type": "string",
-                      "description": "Expression or column name for the description"
-                    },
-                    "purpose": {
-                      "type": "string",
-                      "description": "Purpose of the entitlement: 'assignment', 'permission', or 'access'",
-                      "enum": [
-                        "assignment",
-                        "permission",
-                        "access"
-                      ]
-                    },
-                    "grantable_to": {
-                      "type": "array",
-                      "description": "List of resource type names that can receive this entitlement",
-                      "items": {
-                        "type": "string"
-                      }
-                    },
-                    "slug": {
-                      "type": "string",
-                      "description": "URL-friendly identifier derived from the entitlement name"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "display_name",
-                    "description",
-                    "purpose",
-                    "grantable_to"
-                  ]
-                }
-              }
-            },
-            "required": [
-              "query",
-              "map"
-            ]
-          },
-          "grants": {
-            "type": "array",
-            "description": "Define how to query grants (relationships between principals and entitlements)",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "vars": {
-                  "type": "object",
-                  "description": "Variables available in the query",
-                  "additionalProperties": {
-                    "type": "string"
-                  }
-                },
-                "query": {
-                  "type": "string",
-                  "description": "SQL query to list grants (who has which entitlements)",
-                  "contentMediaType": "text/sql"
-                },
-                "map": {
-                  "type": "array",
-                  "description": "Map query results to grant relationships",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                      "skip_if": {
-                        "type": "string",
-                        "description": "Conditional expression - skip this grant if the condition is true"
-                      },
-                      "principal_id": {
-                        "type": "string",
-                        "description": "Expression or column name for the principal (user/group) ID"
-                      },
-                      "principal_type": {
-                        "type": "string",
-                        "description": "Expression or column name for the principal type (e.g., 'user')"
-                      },
-                      "entitlement_id": {
-                        "type": "string",
-                        "description": "Expression or column name for the entitlement ID being granted"
-                      },
-                      "expandable": {
-                        "type": "object",
-                        "description": "Configuration for expandable grants (grants that recursively include other entitlements)",
-                        "additionalProperties": false,
-                        "properties": {
-                          "entitlement_ids": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            },
-                            "description": "Array of entitlement IDs for expandable grants"
-                          },
-                          "shallow": {
-                            "type": "boolean",
-                            "description": "Whether to perform shallow expansion"
-                          }
-                        },
-                        "required": [
-                          "entitlement_ids",
-                          "shallow"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "principal_id",
-                      "principal_type",
-                      "entitlement_id"
-                    ]
-                  }
-                },
-                "pagination": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "strategy": {
-                      "type": "string",
-                      "enum": [
-                        "offset",
-                        "cursor"
-                      ]
-                    },
-                    "primary_key": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "strategy",
-                    "primary_key"
-                  ]
-                }
-              },
-              "required": [
-                "query",
-                "map"
-              ]
-            }
-          },
-          "account_provisioning": {
-            "type": "object",
-            "description": "Account provisioning configuration - should only be used with resource types that have user traits",
-            "additionalProperties": false,
-            "properties": {
-              "schema": {
-                "type": "array",
-                "description": "Define form fields shown when provisioning new accounts",
-                "items": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "type": "string",
-                      "description": "Field name (used as variable in SQL queries)"
-                    },
-                    "description": {
-                      "type": "string",
-                      "description": "Help text shown to user filling out the form"
-                    },
-                    "type": {
-                      "type": "string",
-                      "description": "Data type for validation",
-                      "enum": [
-                        "string",
-                        "int",
-                        "boolean"
-                      ]
-                    },
-                    "placeholder": {
-                      "type": "string",
-                      "description": "Placeholder text shown in empty field"
-                    },
-                    "required": {
-                      "type": "boolean",
-                      "description": "Whether this field must be filled out"
-                    }
-                  },
-                  "required": [
-                    "name",
-                    "description",
-                    "type",
-                    "placeholder",
-                    "required"
-                  ]
-                }
-              },
-              "credentials": {
-                "type": "object",
-                "description": "Configure how passwords are handled during account creation",
-                "oneOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "no_password": {
-                        "type": "object",
-                        "description": "Don't set a password (e.g., for SSO-only accounts)",
-                        "additionalProperties": false,
-                        "properties": {
-                          "preferred": {
-                            "type": "boolean",
-                            "description": "Whether this is the preferred credential strategy"
-                          }
-                        }
-                      }
-                    },
-                    "required": [
-                      "no_password"
-                    ]
-                  },
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "random_password": {
-                        "type": "object",
-                        "description": "Generate a random password",
-                        "additionalProperties": false,
-                        "properties": {
-                          "max_length": {
-                            "type": "number",
-                            "description": "Maximum password length",
-                            "minimum": 1
-                          },
-                          "min_length": {
-                            "type": "number",
-                            "description": "Minimum password length",
-                            "minimum": 1
-                          },
-                          "preferred": {
-                            "type": "boolean",
-                            "description": "Whether this is the preferred credential strategy"
-                          }
-                        },
-                        "required": [
-                          "max_length",
-                          "min_length",
-                          "preferred"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "random_password"
-                    ]
-                  },
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "encrypted_password": {
-                        "type": "object",
-                        "description": "User provides an already encrypted password",
-                        "additionalProperties": false,
-                        "properties": {
-                          "preferred": {
-                            "type": "boolean",
-                            "description": "Whether this is the preferred credential strategy"
-                          }
-                        },
-                        "required": [
-                          "preferred"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "encrypted_password"
-                    ]
-                  }
-                ]
-              },
-              "validate": {
-                "type": "object",
-                "description": "SQL query to validate account before creation (e.g., check for duplicates)",
-                "additionalProperties": false,
-                "properties": {
-                  "vars": {
-                    "type": "object",
-                    "description": "Variables available in the validation query",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
-                  "query": {
-                    "type": "string",
-                    "description": "SQL query that should return no rows if validation passes",
-                    "contentMediaType": "text/sql"
-                  }
-                },
-                "required": [
-                  "query"
-                ]
-              },
-              "create": {
-                "type": "object",
-                "description": "SQL queries to execute to create the new account",
-                "additionalProperties": false,
-                "properties": {
-                  "vars": {
-                    "type": "object",
-                    "description": "Variables from the provisioning form available in queries",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
-                  "queries": {
-                    "type": "array",
-                    "description": "Array of SQL statements to execute in order to create the account",
-                    "items": {
-                      "type": "string",
-                      "contentMediaType": "text/sql"
-                    }
-                  }
-                },
-                "required": [
-                  "queries"
-                ]
-              }
-            },
-            "required": [
-              "schema"
-            ]
-          },
-          "credential_rotation": {
-            "type": "object",
-            "description": "Password rotation configuration for existing user accounts",
-            "additionalProperties": false,
-            "properties": {
-              "credentials": {
-                "type": "object",
-                "description": "Configure how new passwords are generated during rotation",
-                "oneOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "no_password": {
-                        "type": "object",
-                        "description": "Don't set a password (e.g., for SSO-only accounts)",
-                        "additionalProperties": false,
-                        "properties": {
-                          "preferred": {
-                            "type": "boolean",
-                            "description": "Whether this is the preferred credential strategy"
-                          }
-                        }
-                      }
-                    },
-                    "required": [
-                      "no_password"
-                    ]
-                  },
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "random_password": {
-                        "type": "object",
-                        "description": "Generate a random password",
-                        "additionalProperties": false,
-                        "properties": {
-                          "max_length": {
-                            "type": "number",
-                            "description": "Maximum password length",
-                            "minimum": 1
-                          },
-                          "min_length": {
-                            "type": "number",
-                            "description": "Minimum password length",
-                            "minimum": 1
-                          },
-                          "preferred": {
-                            "type": "boolean",
-                            "description": "Whether this is the preferred credential strategy"
-                          }
-                        },
-                        "required": [
-                          "max_length",
-                          "min_length",
-                          "preferred"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "random_password"
-                    ]
-                  },
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "encrypted_password": {
-                        "type": "object",
-                        "description": "User provides an already encrypted password",
-                        "additionalProperties": false,
-                        "properties": {
-                          "preferred": {
-                            "type": "boolean",
-                            "description": "Whether this is the preferred credential strategy"
-                          }
-                        },
-                        "required": [
-                          "preferred"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "encrypted_password"
-                    ]
-                  }
-                ]
-              },
-              "update": {
-                "type": "object",
-                "description": "SQL queries to execute to rotate the user's password",
-                "additionalProperties": false,
-                "properties": {
-                  "vars": {
-                    "type": "object",
-                    "description": "Variables available in the update queries (e.g., resource.ID, password)",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  },
-                  "queries": {
-                    "type": "array",
-                    "description": "Array of SQL statements to execute in order to update the password",
-                    "items": {
-                      "type": "string",
-                      "contentMediaType": "text/sql"
-                    }
-                  }
-                },
-                "required": [
-                  "queries"
-                ]
-              }
-            },
-            "required": [
-              "credentials",
-              "update"
-            ]
-          }
-        },
-        "required": [
-          "name",
-          "description",
-          "list"
-        ]
+        "$ref": "#/definitions/ResourceType"
       }
     },
-    "static_entitlements": {
-      "type": "array",
-      "description": "Global statically defined entitlements that don't come from database queries",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Unique identifier for this entitlement"
-          },
-          "display_name": {
-            "type": "string",
-            "description": "Human-readable name shown in the Baton UI"
-          },
-          "description": {
-            "type": "string",
-            "description": "Detailed description of what this entitlement grants"
-          },
-          "purpose": {
-            "type": "string",
-            "description": "Purpose of the entitlement: 'assignment' (group membership), 'permission' (specific action), or 'access' (general access)",
-            "enum": [
-              "assignment",
-              "permission",
-              "access"
-            ]
-          },
-          "grantable_to": {
-            "type": "array",
-            "description": "List of resource type names that can receive this entitlement",
-            "items": {
-              "type": "string"
-            }
-          },
-          "provisioning": {
-            "type": "object",
-            "description": "Optional SQL queries to execute when granting or revoking this entitlement",
-            "additionalProperties": false,
-            "properties": {
-              "vars": {
-                "type": "object",
-                "description": "Variables available in grant/revoke queries",
-                "additionalProperties": {
-                  "type": "string"
-                }
-              },
-              "grant": {
-                "type": "object",
-                "description": "SQL queries to execute when granting this entitlement",
-                "additionalProperties": false,
-                "properties": {
-                  "queries": {
-                    "type": "array",
-                    "description": "Array of SQL statements to execute in order",
-                    "items": {
-                      "type": "string",
-                      "contentMediaType": "text/sql"
-                    }
-                  }
-                },
-                "required": [
-                  "queries"
-                ]
-              },
-              "revoke": {
-                "type": "object",
-                "description": "SQL queries to execute when revoking this entitlement",
-                "additionalProperties": false,
-                "properties": {
-                  "queries": {
-                    "type": "array",
-                    "description": "Array of SQL statements to execute in order",
-                    "items": {
-                      "type": "string",
-                      "contentMediaType": "text/sql"
-                    }
-                  }
-                },
-                "required": [
-                  "queries"
-                ]
-              }
-            }
-          }
-        },
-        "required": [
-          "id",
-          "display_name",
-          "description",
-          "purpose",
-          "grantable_to"
-        ]
-      }
-    },
-    "entitlements": {
+    "actions": {
       "type": "object",
-      "description": "Global query-based entitlements loaded from the database",
-      "additionalProperties": false,
-      "properties": {
-        "vars": {
-          "type": "object",
-          "description": "Variables available in the query",
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "query": {
-          "type": "string",
-          "contentMediaType": "text/sql",
-          "description": "SQL query to list entitlements"
-        },
-        "map": {
-          "type": "array",
-          "description": "Map query result columns to entitlement fields",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "skip_if": {
-                "type": "string",
-                "description": "Conditional expression - skip this mapping if true"
-              },
-              "id": {
-                "type": "string",
-                "description": "Expression or column name for the entitlement ID"
-              },
-              "display_name": {
-                "type": "string",
-                "description": "Expression or column name for the display name"
-              },
-              "description": {
-                "type": "string",
-                "description": "Expression or column name for the description"
-              },
-              "purpose": {
-                "type": "string",
-                "description": "Purpose of the entitlement",
-                "enum": [
-                  "assignment",
-                  "permission",
-                  "access"
-                ]
-              },
-              "grantable_to": {
-                "type": "array",
-                "description": "List of resource type names that can receive this entitlement",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "slug": {
-                "type": "string",
-                "description": "URL-friendly identifier"
-              }
-            },
-            "required": [
-              "id",
-              "display_name",
-              "description",
-              "purpose",
-              "grantable_to"
-            ]
-          }
-        }
-      },
-      "required": [
-        "query",
-        "map"
-      ]
-    },
-    "grants": {
-      "type": "array",
-      "description": "Global grant queries (who has which entitlements)",
-      "items": {
-        "type": "object",
-        "properties": {
-          "vars": {
-            "type": "object",
-            "description": "Variables available in the query",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "query": {
-            "type": "string",
-            "description": "SQL query to list grants",
-            "contentMediaType": "text/sql"
-          },
-          "map": {
-            "type": "array",
-            "description": "Map query results to grant relationships",
-            "items": {
-              "type": "object",
-              "properties": {
-                "skip_if": {
-                  "type": "string",
-                  "description": "Conditional expression - skip this grant if true"
-                },
-                "principal_id": {
-                  "type": "string",
-                  "description": "Expression or column name for the principal ID"
-                },
-                "principal_type": {
-                  "type": "string",
-                  "description": "Expression or column name for the principal type"
-                },
-                "entitlement_id": {
-                  "type": "string",
-                  "description": "Expression or column name for the entitlement ID"
-                },
-                "expandable": {
-                  "type": "object",
-                  "description": "Configuration for expandable grants",
-                  "additionalProperties": false,
-                  "properties": {
-                    "entitlement_ids": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "description": "Array of entitlement IDs for expandable grants"
-                    },
-                    "shallow": {
-                      "type": "boolean",
-                      "description": "Whether to perform shallow expansion"
-                    }
-                  },
-                  "required": [
-                    "entitlement_ids",
-                    "shallow"
-                  ]
-                }
-              },
-              "required": [
-                "principal_id",
-                "principal_type",
-                "entitlement_id"
-              ]
-            }
-          },
-          "pagination": {
-            "type": "object",
-            "description": "Configure pagination for large result sets",
-            "properties": {
-              "strategy": {
-                "type": "string",
-                "description": "Pagination strategy: 'offset' or 'cursor'",
-                "enum": [
-                  "offset",
-                  "cursor"
-                ]
-              },
-              "primary_key": {
-                "type": "string",
-                "description": "Primary key column name used for pagination"
-              }
-            },
-            "required": [
-              "strategy",
-              "primary_key"
-            ]
-          }
-        },
-        "required": [
-          "query",
-          "map"
-        ]
+      "description": "Custom actions (e.g., enable/disable user accounts)",
+      "additionalProperties": {
+        "$ref": "#/definitions/ActionConfig"
       }
     }
   },
@@ -1144,5 +33,939 @@
     "app_name",
     "connect",
     "resource_types"
-  ]
+  ],
+  "definitions": {
+    "DatabaseConfig": {
+      "type": "object",
+      "description": "Database connection configuration. Supply either a full DSN, structured fields, or a combination — structured fields override matching DSN components.",
+      "additionalProperties": false,
+      "properties": {
+        "dsn": {
+          "type": "string",
+          "description": "Database Source Name connection string. Supports env var expansion via ${VAR}. Example: postgres://${DB_HOST}:${DB_PORT}/${DB_DATABASE}?sslmode=disable"
+        },
+        "scheme": {
+          "type": "string",
+          "description": "Database type (e.g., postgres, mysql, sqlserver, oracle, hdb)"
+        },
+        "host": {
+          "type": "string",
+          "description": "Database server hostname or IP address"
+        },
+        "port": {
+          "type": "string",
+          "description": "Database server port number"
+        },
+        "database": {
+          "type": "string",
+          "description": "Name of the database to connect to"
+        },
+        "user": {
+          "type": "string",
+          "description": "Database username used for authentication"
+        },
+        "password": {
+          "type": "string",
+          "description": "Database password used for authentication"
+        },
+        "params": {
+          "type": "object",
+          "description": "Additional connection parameters (e.g., sslmode, timeout)",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "databases": {
+          "$ref": "#/definitions/DatabasesConfig"
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["dsn"]
+        },
+        {
+          "required": ["scheme", "host", "database"]
+        }
+      ]
+    },
+    "DatabasesConfig": {
+      "type": "object",
+      "description": "Opts the connector into per-database iteration: each list/entitlements/grants query runs once per named database. Specify either a static list or a discovery query.",
+      "additionalProperties": false,
+      "properties": {
+        "static": {
+          "type": "array",
+          "description": "Static list of database names to iterate",
+          "items": {
+            "type": "string"
+          }
+        },
+        "discovery_query": {
+          "type": "string",
+          "contentMediaType": "text/sql",
+          "description": "SQL query whose first column lists database names. Runs against the admin handle before per-database handles are opened."
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["static"],
+          "not": {
+            "required": ["discovery_query"]
+          }
+        },
+        {
+          "required": ["discovery_query"],
+          "not": {
+            "required": ["static"]
+          }
+        }
+      ]
+    },
+    "ResourceType": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^static_entitlement$": {
+          "type": "array",
+          "errorMessage": "Did you mean 'static_entitlements'?"
+        }
+      },
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name of the resource type"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description"
+        },
+        "skip_entitlements_and_grants": {
+          "type": "boolean",
+          "description": "If true, skip entitlement and grant processing for this resource type"
+        },
+        "list": {
+          "$ref": "#/definitions/ListQuery"
+        },
+        "entitlements": {
+          "$ref": "#/definitions/EntitlementsQuery"
+        },
+        "static_entitlements": {
+          "type": "array",
+          "description": "Predefined entitlement mappings (e.g., admin, member) that don't require dynamic queries",
+          "items": {
+            "$ref": "#/definitions/EntitlementMapping"
+          }
+        },
+        "grants": {
+          "type": "array",
+          "description": "Configuration for discovering existing entitlement grants",
+          "items": {
+            "$ref": "#/definitions/GrantsQuery"
+          }
+        },
+        "account_provisioning": {
+          "$ref": "#/definitions/AccountProvisioning"
+        },
+        "credential_rotation": {
+          "$ref": "#/definitions/CredentialRotation"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "list"
+      ]
+    },
+    "ListQuery": {
+      "type": "object",
+      "description": "Configuration for listing resources from the database",
+      "additionalProperties": false,
+      "properties": {
+        "vars": {
+          "type": "object",
+          "description": "Variables available in the query (e.g., resource.ID). Reference via ?<var_name>.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "query": {
+          "type": "string",
+          "contentMediaType": "text/sql",
+          "description": "SQL query to list resources"
+        },
+        "pagination": {
+          "$ref": "#/definitions/Pagination"
+        },
+        "map": {
+          "$ref": "#/definitions/ResourceMapping"
+        },
+        "scope": {
+          "type": "string",
+          "description": "Set to 'cluster' to opt this query out of per-database iteration. Ignored when connect.databases is unset.",
+          "enum": ["", "cluster"]
+        }
+      },
+      "required": [
+        "query",
+        "map"
+      ]
+    },
+    "ResourceMapping": {
+      "type": "object",
+      "description": "Maps SQL result columns to resource properties",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Expression/column for the resource's unique identifier"
+        },
+        "display_name": {
+          "type": "string",
+          "description": "Expression/column for the resource's human-readable name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Expression/column for the resource's description"
+        },
+        "traits": {
+          "$ref": "#/definitions/Traits"
+        },
+        "annotations": {
+          "$ref": "#/definitions/Annotations"
+        }
+      },
+      "required": [
+        "id",
+        "display_name"
+      ]
+    },
+    "Traits": {
+      "type": "object",
+      "description": "Attribute mappings for different resource types",
+      "additionalProperties": false,
+      "properties": {
+        "app": {
+          "$ref": "#/definitions/AppTraitMapping"
+        },
+        "group": {
+          "$ref": "#/definitions/GroupTraitMapping"
+        },
+        "role": {
+          "$ref": "#/definitions/RoleTraitMapping"
+        },
+        "user": {
+          "$ref": "#/definitions/UserTraitMapping"
+        }
+      }
+    },
+    "UserTraitMapping": {
+      "type": "object",
+      "description": "Attribute mappings specific to user resources",
+      "additionalProperties": false,
+      "properties": {
+        "emails": {
+          "type": "array",
+          "description": "Email addresses; first is primary",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "User status. Enabled: active|enabled. Disabled: disabled|inactive|suspended|locked. Deleted: deleted."
+        },
+        "status_details": {
+          "type": "string",
+          "description": "Additional information about the user's status"
+        },
+        "profile": {
+          "type": "object",
+          "description": "User profile attributes",
+          "additionalProperties": true
+        },
+        "account_type": {
+          "type": "string",
+          "description": "Account type. Supported: user, human, service, system."
+        },
+        "login": {
+          "type": "string",
+          "description": "Primary login identifier"
+        },
+        "login_aliases": {
+          "type": "array",
+          "description": "Alternative login identifiers",
+          "items": {
+            "type": "string"
+          }
+        },
+        "last_login": {
+          "type": "string",
+          "description": "Time of the user's last login"
+        },
+        "employee_ids": {
+          "type": "array",
+          "description": "Employee identifier(s)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "manager_id": {
+          "type": "string",
+          "description": "Identifier of the user's manager"
+        },
+        "manager_email": {
+          "type": "string",
+          "description": "Email address of the user's manager"
+        },
+        "mfa_enabled": {
+          "type": "string",
+          "description": "Whether MFA is enabled for the user (expression evaluating to boolean)"
+        },
+        "sso_enabled": {
+          "type": "string",
+          "description": "Whether SSO is enabled for the user (expression evaluating to boolean)"
+        }
+      }
+    },
+    "GroupTraitMapping": {
+      "type": "object",
+      "description": "Attribute mappings for group resources",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": "object",
+          "description": "Group profile attributes",
+          "additionalProperties": true
+        }
+      }
+    },
+    "AppTraitMapping": {
+      "type": "object",
+      "description": "Attribute mappings for application resources",
+      "additionalProperties": false,
+      "properties": {
+        "help_url": {
+          "type": "string",
+          "description": "Link to help documentation for the application"
+        },
+        "profile": {
+          "type": "object",
+          "description": "Application profile attributes",
+          "additionalProperties": true
+        }
+      }
+    },
+    "RoleTraitMapping": {
+      "type": "object",
+      "description": "Attribute mappings for role resources",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": "object",
+          "description": "Role profile attributes",
+          "additionalProperties": true
+        }
+      }
+    },
+    "Annotations": {
+      "type": "object",
+      "description": "Additional metadata for resource or grant mappings",
+      "additionalProperties": false,
+      "properties": {
+        "entitlement_immutable": {
+          "type": "object",
+          "description": "Marks an entitlement as immutable (cannot be revoked)"
+        },
+        "external_link": {
+          "type": "object",
+          "description": "External URL reference for the resource or entitlement"
+        }
+      }
+    },
+    "Pagination": {
+      "type": "object",
+      "description": "Pagination strategy and settings",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "description": "Pagination approach",
+          "enum": ["offset", "cursor"]
+        },
+        "primary_key": {
+          "type": "string",
+          "description": "Column used to uniquely identify records for pagination"
+        },
+        "page_size": {
+          "type": "integer",
+          "description": "Rows fetched per page (default 100, max 1000). Reduce if results exceed gRPC message size limits.",
+          "minimum": 1,
+          "maximum": 1000
+        }
+      },
+      "required": ["strategy", "primary_key"]
+    },
+    "EntitlementsQuery": {
+      "type": "object",
+      "description": "Query-based dynamic entitlements (e.g., groups, roles)",
+      "additionalProperties": false,
+      "properties": {
+        "vars": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "query": {
+          "type": "string",
+          "contentMediaType": "text/sql",
+          "description": "SQL query to list entitlements"
+        },
+        "pagination": {
+          "$ref": "#/definitions/Pagination"
+        },
+        "map": {
+          "type": "array",
+          "description": "Map query result columns to entitlement fields",
+          "items": {
+            "$ref": "#/definitions/EntitlementMapping"
+          }
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["", "cluster"]
+        }
+      },
+      "required": ["query", "map"]
+    },
+    "EntitlementMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this entitlement (expression or column)"
+        },
+        "display_name": {
+          "type": "string",
+          "description": "Human-readable name (expression or column)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of what this entitlement represents"
+        },
+        "grantable_to": {
+          "type": "array",
+          "description": "Resource type names eligible to receive this entitlement",
+          "items": { "type": "string" }
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Intended use. Supported: assignment, permission.",
+          "enum": ["assignment", "permission"]
+        },
+        "slug": {
+          "type": "string",
+          "description": "URL-friendly short identifier"
+        },
+        "immutable": {
+          "type": "boolean",
+          "description": "If true, this entitlement cannot be granted or revoked"
+        },
+        "skip_if": {
+          "type": "string",
+          "description": "CEL expression — when true, skip processing this mapping"
+        },
+        "provisioning": {
+          "$ref": "#/definitions/EntitlementProvisioning"
+        },
+        "exclusion_group": {
+          "$ref": "#/definitions/ExclusionGroupMapping"
+        }
+      },
+      "required": ["id", "display_name", "description", "purpose", "grantable_to"]
+    },
+    "ExclusionGroupMapping": {
+      "type": "object",
+      "description": "Declares this entitlement as part of a mutually exclusive group on its parent resource. All fields are CEL expressions.",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Opaque exclusion group identifier"
+        },
+        "order": {
+          "type": "string",
+          "description": "Optional ordering hint within the group (CEL expression to uint32)"
+        },
+        "is_default": {
+          "type": "string",
+          "description": "Marks this entitlement as the group's default (CEL expression to bool)"
+        },
+        "is_scope_to_resource": {
+          "type": "string",
+          "description": "Scope the exclusion group to a resource on static entitlement (CEL expression to bool)"
+        }
+      },
+      "required": ["id"]
+    },
+    "EntitlementProvisioning": {
+      "type": "object",
+      "description": "Settings and SQL queries for granting/revoking this entitlement",
+      "additionalProperties": false,
+      "properties": {
+        "vars": {
+          "type": "object",
+          "description": "Variables available to grant/revoke queries (e.g., principal.ID, resource.ID)",
+          "additionalProperties": { "type": "string" }
+        },
+        "grant": {
+          "$ref": "#/definitions/GrantEntitlementProvisioningQueries"
+        },
+        "revoke": {
+          "$ref": "#/definitions/EntitlementProvisioningQueries"
+        }
+      }
+    },
+    "EntitlementProvisioningQueries": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "no_transaction": {
+          "type": "boolean",
+          "description": "If true, execute these queries without a transaction"
+        },
+        "validation_queries": {
+          "type": "array",
+          "description": "Optional SQL statements to run before the action queries",
+          "items": {
+            "type": "string",
+            "contentMediaType": "text/sql"
+          }
+        },
+        "queries": {
+          "type": "array",
+          "description": "SQL statements to execute in order",
+          "items": {
+            "type": "string",
+            "contentMediaType": "text/sql"
+          }
+        }
+      }
+    },
+    "GrantEntitlementProvisioningQueries": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "no_transaction": { "type": "boolean" },
+        "validation_queries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "contentMediaType": "text/sql"
+          }
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "contentMediaType": "text/sql"
+          }
+        },
+        "grant_replace": {
+          "$ref": "#/definitions/GrantReplaceProvisioningQueries"
+        }
+      }
+    },
+    "GrantReplaceProvisioningQueries": {
+      "type": "object",
+      "description": "SQL queries and settings for replacing existing grants with the new grant",
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "type": "string",
+          "contentMediaType": "text/sql"
+        },
+        "map": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GrantMapping"
+          }
+        }
+      },
+      "required": ["query"]
+    },
+    "GrantsQuery": {
+      "type": "object",
+      "description": "Configuration for discovering existing entitlement grants",
+      "additionalProperties": false,
+      "properties": {
+        "vars": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "query": {
+          "type": "string",
+          "contentMediaType": "text/sql",
+          "description": "SQL query to retrieve grants"
+        },
+        "pagination": {
+          "$ref": "#/definitions/Pagination"
+        },
+        "map": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GrantMapping"
+          }
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["", "cluster"]
+        }
+      },
+      "required": ["query", "map"]
+    },
+    "GrantMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skip_if": {
+          "type": "string",
+          "description": "CEL expression — when true, skip this row mapping"
+        },
+        "principal_id": {
+          "type": "string",
+          "description": "Expression/column for the principal's unique identifier"
+        },
+        "principal_type": {
+          "type": "string",
+          "description": "Expression/column for the principal type (e.g., user, group)"
+        },
+        "entitlement_id": {
+          "type": "string",
+          "description": "Expression/column for the associated entitlement"
+        },
+        "entitlement_resource_id": {
+          "type": "string",
+          "description": "Used for grant replace on grant action"
+        },
+        "annotations": {
+          "$ref": "#/definitions/Annotations"
+        },
+        "expandable": {
+          "$ref": "#/definitions/ExpandableGrant"
+        }
+      },
+      "required": ["principal_id", "principal_type", "entitlement_id"]
+    },
+    "ExpandableGrant": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skip_if": {
+          "type": "string",
+          "description": "CEL expression — when true, skip this mapping"
+        },
+        "entitlement_ids": {
+          "type": "array",
+          "description": "Entitlement IDs to expand into",
+          "items": { "type": "string" }
+        },
+        "shallow": {
+          "type": "boolean",
+          "description": "Whether to perform shallow expansion"
+        }
+      }
+    },
+    "AccountProvisioning": {
+      "type": "object",
+      "description": "Configuration for provisioning new accounts",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "array",
+          "description": "Form fields shown when provisioning new accounts",
+          "items": {
+            "$ref": "#/definitions/AccountProvisioningField"
+          }
+        },
+        "credentials": {
+          "$ref": "#/definitions/AccountCredentials"
+        },
+        "create": {
+          "$ref": "#/definitions/AccountCreationConfig"
+        },
+        "validate": {
+          "$ref": "#/definitions/AccountValidationConfig"
+        }
+      },
+      "required": ["schema", "credentials", "create", "validate"]
+    },
+    "AccountProvisioningField": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Field name (used as variable in SQL queries)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Help text shown to the user filling out the form"
+        },
+        "type": {
+          "type": "string",
+          "description": "Field data type. Supported: string, string_list, boolean, int, map.",
+          "enum": ["string", "string_list", "boolean", "int", "map"]
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "Placeholder text shown in empty field"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this field must be filled out"
+        }
+      },
+      "required": ["name", "description", "type", "placeholder", "required"]
+    },
+    "AccountCredentials": {
+      "type": "object",
+      "description": "Configure how passwords are handled. Multiple strategies can be defined simultaneously; `preferred: true` picks the default.",
+      "additionalProperties": false,
+      "properties": {
+        "no_password": {
+          "$ref": "#/definitions/NoPasswordConfig"
+        },
+        "random_password": {
+          "$ref": "#/definitions/RandomPasswordConfig"
+        },
+        "encrypted_password": {
+          "$ref": "#/definitions/EncryptedPasswordConfig"
+        }
+      },
+      "anyOf": [
+        { "required": ["no_password"] },
+        { "required": ["random_password"] },
+        { "required": ["encrypted_password"] }
+      ]
+    },
+    "NoPasswordConfig": {
+      "type": "object",
+      "description": "Account does not require a password (e.g., SSO-only accounts)",
+      "additionalProperties": false,
+      "properties": {
+        "preferred": {
+          "type": "boolean",
+          "description": "Whether this is the preferred credential strategy"
+        }
+      }
+    },
+    "RandomPasswordConfig": {
+      "type": "object",
+      "description": "Generate a random password. Length and disallowed chars are managed by the platform; use `constraints` to enforce character-set rules.",
+      "additionalProperties": false,
+      "properties": {
+        "preferred": {
+          "type": "boolean",
+          "description": "Whether this is the preferred credential strategy"
+        },
+        "max_length": {
+          "type": "integer",
+          "description": "Deprecated: not implemented and has no effect.",
+          "deprecated": true
+        },
+        "min_length": {
+          "type": "integer",
+          "description": "Deprecated: not implemented and has no effect.",
+          "deprecated": true
+        },
+        "disallowed_characters": {
+          "type": "string",
+          "description": "Deprecated: not implemented. Use `constraints` instead.",
+          "deprecated": true
+        },
+        "constraints": {
+          "type": "array",
+          "description": "Character-set rules enforced when generating a random password. Replaces platform defaults.",
+          "items": {
+            "$ref": "#/definitions/PasswordConstraintConfig"
+          }
+        }
+      }
+    },
+    "EncryptedPasswordConfig": {
+      "type": "object",
+      "description": "User provides an already-encrypted password",
+      "additionalProperties": false,
+      "properties": {
+        "preferred": {
+          "type": "boolean",
+          "description": "Whether this is the preferred credential strategy"
+        }
+      }
+    },
+    "PasswordConstraintConfig": {
+      "type": "object",
+      "description": "A character-set constraint for random password generation",
+      "additionalProperties": false,
+      "properties": {
+        "char_set": {
+          "type": "string",
+          "description": "Characters that must appear in the generated password"
+        },
+        "min_count": {
+          "type": "integer",
+          "description": "Minimum number of characters from char_set required",
+          "minimum": 1
+        }
+      },
+      "required": ["char_set", "min_count"]
+    },
+    "AccountValidationConfig": {
+      "type": "object",
+      "description": "SQL query to validate the account before creation (e.g., check for duplicates)",
+      "additionalProperties": false,
+      "properties": {
+        "vars": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "query": {
+          "type": "string",
+          "contentMediaType": "text/sql",
+          "description": "SQL query — return no rows if validation passes"
+        }
+      },
+      "required": ["query"]
+    },
+    "AccountCreationConfig": {
+      "type": "object",
+      "description": "SQL queries executed to create the new account",
+      "additionalProperties": false,
+      "properties": {
+        "vars": {
+          "type": "object",
+          "description": "Variables available in queries (e.g., input.fieldname, credentials.fieldname)",
+          "additionalProperties": { "type": "string" }
+        },
+        "queries": {
+          "type": "array",
+          "description": "SQL statements executed in order to create the account",
+          "items": {
+            "type": "string",
+            "contentMediaType": "text/sql"
+          }
+        },
+        "no_transaction": {
+          "type": "boolean",
+          "description": "If true, execute the creation queries without a transaction"
+        }
+      },
+      "required": ["queries"]
+    },
+    "CredentialRotation": {
+      "type": "object",
+      "description": "Password rotation configuration for existing accounts",
+      "additionalProperties": false,
+      "properties": {
+        "credentials": {
+          "$ref": "#/definitions/AccountCredentials"
+        },
+        "update": {
+          "$ref": "#/definitions/AccountCreationConfig"
+        }
+      },
+      "required": ["credentials", "update"]
+    },
+    "ActionConfig": {
+      "type": "object",
+      "description": "A custom action (e.g., enable/disable user). Specify either `query` (one statement) or `queries` (multiple).",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name for the action"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of what this action does"
+        },
+        "arguments": {
+          "type": "object",
+          "description": "Arguments accepted by this action",
+          "additionalProperties": {
+            "$ref": "#/definitions/ArgumentConfig"
+          }
+        },
+        "vars": {
+          "type": "object",
+          "description": "Variables available in the action query (in addition to argument names)",
+          "additionalProperties": { "type": "string" }
+        },
+        "no_transaction": {
+          "type": "boolean",
+          "description": "If true, execute action queries without a transaction"
+        },
+        "query": {
+          "type": "string",
+          "contentMediaType": "text/sql",
+          "description": "Single SQL statement to execute. Mutually exclusive with `queries`."
+        },
+        "queries": {
+          "type": "array",
+          "description": "SQL statements to execute in order. Mutually exclusive with `query`.",
+          "items": {
+            "type": "string",
+            "contentMediaType": "text/sql"
+          }
+        },
+        "action_type": {
+          "type": "array",
+          "description": "Action types. Supported: unspecified, dynamic, account, account_update_profile, account_disable, account_enable.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "unspecified",
+              "dynamic",
+              "account",
+              "account_update_profile",
+              "account_disable",
+              "account_enable"
+            ]
+          }
+        }
+      },
+      "required": ["name"],
+      "oneOf": [
+        { "required": ["query"], "not": { "required": ["queries"] } },
+        { "required": ["queries"], "not": { "required": ["query"] } }
+      ]
+    },
+    "ArgumentConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Argument display name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the argument"
+        },
+        "type": {
+          "type": "string",
+          "description": "Argument data type. Supported: string, boolean, number, string_list, string_map.",
+          "enum": ["string", "boolean", "number", "string_list", "string_map"]
+        },
+        "default": {
+          "description": "Default value when not provided. Must not be set when `required` is true."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this argument is required"
+        }
+      },
+      "required": ["name", "type"]
+    }
+  }
 }

@@ -12,8 +12,13 @@ export const invalidGroupByRule: ValidationRule = {
 
       if (ast && typeof ast === 'object' && 'type' in ast && ast.type === "select") {
         const selectAst = ast as any;
-        // Check if there's a GROUP BY clause
-        const hasGroupByClause = selectAst.groupby && selectAst.groupby.length > 0;
+        // node-sql-parser exposes groupby as either an array (older) or an
+        // object { columns: [...], modifiers: [...] } (current). Detect both.
+        const groupby = selectAst.groupby;
+        const hasGroupByClause = !!groupby && (
+          (Array.isArray(groupby) && groupby.length > 0) ||
+          (Array.isArray(groupby.columns) && groupby.columns.length > 0)
+        );
 
         // Analyze columns for aggregate functions
         let hasAggregates = false;

@@ -32,12 +32,15 @@ export function validateSql(
   // Apply all validation rules
   for (const rule of allValidationRules) {
     try {
-      const result = rule.validate(normalizedSql, originalQuery);
-      if (!result.isValid) {
-        results.push({
-          ...result,
-          errorMessage: result.errorMessage || `Validation failed for rule: ${rule.name}`
-        });
+      const out = rule.validate(normalizedSql, originalQuery);
+      const arr = Array.isArray(out) ? out : [out];
+      for (const result of arr) {
+        if (!result.isValid) {
+          results.push({
+            ...result,
+            errorMessage: result.errorMessage || `Validation failed for rule: ${rule.name}`
+          });
+        }
       }
     } catch (error) {
       // A throwing rule must not break the others, but the error needs to

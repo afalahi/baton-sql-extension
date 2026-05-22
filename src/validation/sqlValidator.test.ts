@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateSql, clearValidationCache, RuleErrorHandler } from './sqlValidator';
+import { ValidationRule } from './types';
+import { allValidationRules } from './rules';
 
 test('validateSql returns no results for clean SQL', () => {
   clearValidationCache();
@@ -52,4 +54,28 @@ test('validateSql falls back to console.error when no handler provided', () => {
   // the call completes for a benign input.
   const results = validateSql('SELECT 1', 'SELECT 1');
   assert.ok(Array.isArray(results));
+});
+
+test('validateSql accepts a rule that returns an array of results', () => {
+  clearValidationCache();
+  // Build a fake rule inline, push it into allValidationRules for the test,
+  // then pop it. We're testing that the iteration handles widened returns.
+  const originalLength = allValidationRules.length;
+  const arrayRule: ValidationRule = {
+    name: 'test-array-rule',
+    description: 'returns two failures',
+    validate: () => [
+      { isValid: false, errorMessage: 'first' },
+      { isValid: false, errorMessage: 'second' },
+    ],
+  };
+  allValidationRules.push(arrayRule);
+  try {
+    const results = validateSql('SELECT 1', 'SELECT 1');
+    const messages = results.map(r => r.errorMessage);
+    assert.ok(messages.includes('first'), 'should include first error');
+    assert.ok(messages.includes('second'), 'should include second error');
+  } finally {
+    allValidationRules.length = originalLength;
+  }
 });

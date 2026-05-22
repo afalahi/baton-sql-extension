@@ -22,7 +22,14 @@ export interface ValidationResult {
 export interface ValidationRule {
   name: string;
   description: string;
-  validate: (sql: string, originalQuery: string) => ValidationResult;
+  /** Defaults to 'query' — rule runs once per ParsedQuery. 'document' runs once per BatonDocument. */
+  scope?: 'query' | 'document';
+  validate: (
+    sql: string,
+    yamlContent: string,
+    // ctx?: RuleContext   // ← intentionally NOT imported here; see below
+    ctx?: any
+  ) => ValidationResult | ValidationResult[];
 }
 
 export interface SQLQueryInfo {

@@ -2,6 +2,21 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.5.0] - 2026-05-22
+
+### Changed
+
+- **Dialect-aware SQL parsing.** `connect.scheme` is now passed through to `node-sql-parser` as its `database` option. Postgres-specific syntax (e.g., `ON CONFLICT`, `RETURNING`, `::type` casts), SQL Server `TOP`, and other dialect-specific constructs now parse correctly. `ParsedQuery.ast` is populated for these queries where it was previously `null`.
+
+### Added
+
+- New `src/validation/dialect.ts` exporting `schemeToDialect(scheme?)`. Recognized schemes: `pg`/`postgres`/`postgresql` → `postgresql`; `mysql`/`mysql2`/`mariadb` → `mysql`; `sqlserver`/`mssql`/`tsql` → `transactsql`; plus `sqlite`, `snowflake`, `bigquery`, `redshift`, `db2`. Schemes the connector supports but `node-sql-parser` doesn't (`oracle`, `hdb`) fall back to the default dialect.
+- `ParsedQuery.dialect` records the dialect used by the parse (undefined = default).
+
+### Behavior deltas
+
+This release is **foundational** — the current rule set does not produce visibly different LSP diagnostics in PR2. AST-driven rules only fire on SELECT, while the dialect-specific constructs that newly parse correctly are mostly in INSERT/UPDATE/DELETE shapes. The visible improvements will come in subsequent releases as new rules opt into the now-correct AST (e.g., dialect-specific column extraction for column-trait coherence). Users without `connect.scheme` see no change in this release.
+
 ## [1.4.0] - 2026-05-21
 
 ### Changed

@@ -524,6 +524,94 @@ test('resolveVarsScope: returns empty map for unknown path', () => {
   const scope = resolveVarsScope(doc, ['nonexistent', 'path']);
   assert.equal(scope.size, 0);
 });
+
+test('resolveVarsScope: entitlements.query picks up entitlements.vars', () => {
+  const doc = parse(`
+resource_types:
+  user:
+    entitlements:
+      vars:
+        resource_id: resource.ID
+      query: SELECT 1
+`);
+  const scope = resolveVarsScope(doc, ['resource_types', 'user', 'entitlements', 'query']);
+  assert.equal(scope.get('resource_id'), 'resource.ID');
+});
+
+test('resolveVarsScope: entitlements.map[i].provisioning.grant picks up map[i].provisioning.vars', () => {
+  const doc = parse(`
+resource_types:
+  user:
+    entitlements:
+      query: SELECT * FROM perms
+      map:
+        - id: ".name"
+          provisioning:
+            vars:
+              principal_id: principal.ID
+            grant:
+              queries:
+                - SELECT 1
+`);
+  const scope = resolveVarsScope(doc, [
+    'resource_types', 'user', 'entitlements', 'map', 0, 'provisioning', 'grant', 'queries', 0,
+  ]);
+  assert.equal(scope.get('principal_id'), 'principal.ID');
+});
+
+test('resolveVarsScope: static_entitlements.revoke uses the same provisioning.vars as grant', () => {
+  const doc = parse(`
+resource_types:
+  user:
+    static_entitlements:
+      - id: admin
+        provisioning:
+          vars:
+            principal_id: principal.ID
+          revoke:
+            queries:
+              - DELETE 1
+`);
+  const scope = resolveVarsScope(doc, [
+    'resource_types', 'user', 'static_entitlements', 0, 'provisioning', 'revoke', 'queries', 0,
+  ]);
+  assert.equal(scope.get('principal_id'), 'principal.ID');
+});
+
+test('resolveVarsScope: credential_rotation.update.queries picks up update.vars', () => {
+  const doc = parse(`
+resource_types:
+  user:
+    credential_rotation:
+      update:
+        vars:
+          new_password: input.password
+        queries:
+          - UPDATE 1
+`);
+  const scope = resolveVarsScope(doc, [
+    'resource_types', 'user', 'credential_rotation', 'update', 'queries', 0,
+  ]);
+  assert.equal(scope.get('new_password'), 'input.password');
+});
+
+test('resolveVarsScope: actions.queries[j] picks up actions.vars + arguments', () => {
+  const doc = parse(`
+actions:
+  batch:
+    vars:
+      ts: input.timestamp
+    arguments:
+      id:
+        type: string
+    queries:
+      - SELECT 1
+      - SELECT 2
+`);
+  const scope = resolveVarsScope(doc, ['actions', 'batch', 'queries', 1]);
+  assert.equal(scope.get('ts'), 'input.timestamp');
+  assert.equal(scope.get('id'), 'string');
+});
 ```
 
 - [ ] **Step 2: Run, verify they fail**
@@ -643,15 +731,23 @@ export function resolveVarsScope(
 }
 ```
 
-- [ ] **Step 4: Run, verify all 8 tests pass**
+- [ ] **Step 4: Run, verify all 14 tests pass**
 
 ```bash
-node --import tsx --test src/validation/document.test.ts 2>&1 | tail -12
+node --import tsx --test src/validation/document.test.ts 2>&1 | tail -20
 ```
 
-Expected: `pass 8`, `fail 0`.
+Expected: `pass 14`, `fail 0`. (The 14 tests cover every row of the spec's varsScope resolution table plus the empty/unknown-path edge cases.)
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Run the full test suite**
+
+```bash
+npm test 2>&1 | tail -6
+```
+
+Expected: `pass 97` (83 from Task 2 + 14 new), `fail 0`.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/validation/document.ts src/validation/document.test.ts
@@ -881,7 +977,7 @@ export interface ValidationRule {
 npm test 2>&1 | tail -6
 ```
 
-Expected: `pass 86` (83 from Task 2 + 3 new in this task), `fail 0`. All existing 14 rule files still satisfy the interface.
+Expected: `pass 100` (97 from Task 3 + 3 new in this task), `fail 0`. All existing 14 rule files still satisfy the interface.
 
 - [ ] **Step 7: Commit**
 
@@ -1102,7 +1198,14 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
     };
   }
 
-  // resource_types walk
+  // resource_types walk.
+  // The OUTER iteration follows YAML key order (Object.entries on the
+  // resource_types map). Within each resource type, sub-sections are walked
+  // in a FIXED order (list → entitlements → grants → static_entitlements →
+  // account_provisioning → credential_rotation), which can differ from today's
+  // findSQLQueries traversal if a YAML file lists sub-sections out of
+  // conventional order. For typical configs this is identical; for unusual
+  // orderings the dedup logic (which keeps first-equal) absorbs the difference.
   if (yamlObj.resource_types && typeof yamlObj.resource_types === 'object') {
     for (const [rtId, rtVal] of Object.entries<any>(yamlObj.resource_types)) {
       if (!rtVal || typeof rtVal !== 'object') continue;
@@ -1236,15 +1339,16 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
 }
 ```
 
-Now add the helper `buildQueryIfPresent` at the bottom of `document.ts`:
+**Add `import { parseQuery } from './parsedQuery';` to the imports block at the TOP of `document.ts`** (next to the existing `import { ParsedQuery } from './parsedQuery';` line — combine into a single named-import if you like). Then add the helpers below the `buildBatonDocument` function:
 
 ```ts
-import { parseQuery } from './parsedQuery';
-
 /**
- * If `rawSql` is a non-empty string, build a ParsedQuery, push into `into`, and return it.
- * Locates absolute offsets via a simple indexOf into yamlContent (good enough for PR1;
- * matches today's findQueryByDirectMatch behavior).
+ * Build a ParsedQuery for `rawSql`, push into `into`, and return it.
+ * Returns null if rawSql isn't a non-empty string.
+ *
+ * Offset finding mirrors today's findSQLQueries multi-fallback chain
+ * (yamlUtils.ts:90-176) so behavior is preserved on edge configs where
+ * YAML block-fold changes whitespace or several queries share text.
  */
 function buildQueryIfPresent(
   yamlContent: string,
@@ -1254,27 +1358,99 @@ function buildQueryIfPresent(
   into: ParsedQuery[]
 ): ParsedQuery | null {
   if (typeof rawSql !== 'string' || rawSql.length === 0) return null;
-  const startOffset = yamlContent.indexOf(rawSql);
-  const endOffset = startOffset >= 0 ? startOffset + rawSql.length : -1;
+  const { startOffset, endOffset } = locateQueryInYaml(yamlContent, rawSql, yamlPath);
   const query = parseQuery({
     rawSql,
     yamlPath,
-    startOffset: startOffset >= 0 ? startOffset : 0,
-    endOffset: endOffset >= 0 ? endOffset : 0,
+    startOffset,
+    endOffset,
     varsScope,
   });
   into.push(query);
   return query;
 }
+
+/**
+ * Find the absolute byte offsets of `rawSql` within `yamlContent`. Tries four
+ * strategies in order, matching the fallback chain in `findSQLQueries`:
+ *
+ *   1. Direct string match (covers the common case).
+ *   2. Normalized-whitespace match (YAML block-fold `>` collapses newlines).
+ *   3. First-line match (multi-line block scalars where lines reflow).
+ *   4. yamlPath-aware section search (anchors on the last string segment of
+ *      the yamlPath to disambiguate identical SQL appearing in two places).
+ *
+ * Returns `{0, 0}` if all four strategies fail.
+ */
+function locateQueryInYaml(
+  yamlContent: string,
+  rawSql: string,
+  yamlPath: (string | number)[]
+): { startOffset: number; endOffset: number } {
+  // 1. Direct match.
+  const direct = yamlContent.indexOf(rawSql);
+  if (direct !== -1) {
+    return { startOffset: direct, endOffset: direct + rawSql.length };
+  }
+
+  // 2. Normalized-whitespace match.
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+  const normalizedRaw = norm(rawSql);
+  const normalizedYaml = norm(yamlContent);
+  const normIdx = normalizedYaml.indexOf(normalizedRaw);
+  if (normIdx !== -1) {
+    return { startOffset: normIdx, endOffset: normIdx + rawSql.length };
+  }
+
+  // 3. First-line search.
+  const queryLines = rawSql.split('\n').filter(l => l.trim().length > 0);
+  if (queryLines.length > 0) {
+    const firstLine = queryLines[0].trim();
+    const lines = yamlContent.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes(firstLine)) {
+        const offset = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
+        return { startOffset: offset, endOffset: offset + rawSql.length };
+      }
+    }
+  }
+
+  // 4. yamlPath-anchored section search.
+  const stringSegs = yamlPath.filter((s): s is string => typeof s === 'string');
+  if (stringSegs.length > 0) {
+    const lastKey = stringSegs[stringSegs.length - 1];
+    const lines = yamlContent.split('\n');
+    let inSection = false;
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      if (!inSection && trimmed.includes(lastKey + ':')) {
+        inSection = true;
+        continue;
+      }
+      if (inSection && trimmed.includes(rawSql.substring(0, Math.min(50, rawSql.length)))) {
+        const offset = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
+        return { startOffset: offset, endOffset: offset + rawSql.length };
+      }
+    }
+  }
+
+  // All four strategies failed; fall back to zero offsets. The diagnostic
+  // range will cover the full document, which is the same behavior today's
+  // server.ts uses when findSQLQueries returns no position info.
+  return { startOffset: 0, endOffset: 0 };
+}
 ```
+
+(The `import { parseQuery }` line is added to the TOP imports block — do NOT nest it next to the helper function. ESLint will warn on non-top-of-file imports, and the project convention is to keep all imports at the top.)
 
 - [ ] **Step 4: Run, verify all tests pass**
 
 ```bash
-node --import tsx --test src/validation/document.test.ts 2>&1 | tail -15
+node --import tsx --test src/validation/document.test.ts 2>&1 | tail -20
 ```
 
-Expected: `pass 16` (8 from Task 3 + 3 from Task 4 + 5 new). Full suite still green.
+Expected: `pass 22` (14 from Task 3 + 3 from Task 4 + 5 new). Full suite still green.
 
 - [ ] **Step 5: Run full suite**
 
@@ -1282,7 +1458,7 @@ Expected: `pass 16` (8 from Task 3 + 3 from Task 4 + 5 new). Full suite still gr
 npm test 2>&1 | tail -6
 ```
 
-Expected: `pass 91`, `fail 0`.
+Expected: `pass 105`, `fail 0`.
 
 - [ ] **Step 6: Commit**
 
@@ -1423,7 +1599,7 @@ Expected: failures — queries.length mismatches because we haven't walked accou
 
 - [ ] **Step 3: Add the walks to `buildBatonDocument`**
 
-In `src/validation/document.ts`, find the comment `// entitlements.map[i].provisioning.{grant,revoke}.queries[j]` (inside the entitlements walk) and replace it (and the inner loop body) with:
+In `src/validation/document.ts`, locate the ENTIRE `if (Array.isArray(rtVal.entitlements.map))` block from Task 5 (the one that currently does only `definedEntitlementIds.expression.add(m.id)` and contains the stub comment `// entitlements.map[i].provisioning.{grant,revoke}.queries[j]`). Replace the WHOLE block (from the `if (Array.isArray(...))` line through its matching `}`) with this expanded version that walks per-mapping provisioning queries:
 
 ```ts
         // entitlements.map[i].id (expression) → definedEntitlementIds.expression
@@ -1511,10 +1687,10 @@ Then, *after* the static_entitlements block, add the account_provisioning + cred
 - [ ] **Step 4: Run tests, verify all 3 new pass**
 
 ```bash
-node --import tsx --test src/validation/document.test.ts 2>&1 | tail -15
+node --import tsx --test src/validation/document.test.ts 2>&1 | tail -20
 ```
 
-Expected: 19 tests pass.
+Expected: 25 tests pass (22 from Task 5 + 3 new).
 
 - [ ] **Step 5: Run full suite**
 
@@ -1522,7 +1698,7 @@ Expected: 19 tests pass.
 npm test 2>&1 | tail -6
 ```
 
-Expected: `pass 94`, `fail 0`.
+Expected: `pass 108`, `fail 0`.
 
 - [ ] **Step 6: Commit**
 
@@ -1633,10 +1809,10 @@ At the end of `buildBatonDocument`, just before the final `return doc`:
 - [ ] **Step 4: Run tests, verify pass**
 
 ```bash
-node --import tsx --test src/validation/document.test.ts 2>&1 | tail -8
+node --import tsx --test src/validation/document.test.ts 2>&1 | tail -10
 ```
 
-Expected: 21 tests pass.
+Expected: 27 tests pass (25 from Task 6 + 2 new).
 
 - [ ] **Step 5: Run full suite**
 
@@ -1644,7 +1820,7 @@ Expected: 21 tests pass.
 npm test 2>&1 | tail -6
 ```
 
-Expected: `pass 96`, `fail 0`.
+Expected: `pass 110`, `fail 0`.
 
 - [ ] **Step 6: Commit**
 
@@ -1764,12 +1940,20 @@ resource_types:
 - [ ] **Step 2: Run tests, verify they pass immediately (no new code needed)**
 
 ```bash
-node --import tsx --test src/validation/document.test.ts 2>&1 | tail -8
+node --import tsx --test src/validation/document.test.ts 2>&1 | tail -10
 ```
 
-Expected: 24 tests pass.
+Expected: 30 tests pass (27 from Task 7 + 3 new).
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: Run full suite**
+
+```bash
+npm test 2>&1 | tail -6
+```
+
+Expected: `pass 113`, `fail 0`.
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git add src/validation/document.test.ts
@@ -1894,6 +2078,32 @@ test('uriToHash + evictUri: evicting a URI not in the side-index is a no-op', ()
   evictUri('file:///nonexistent.yaml');
   assert.equal(documentCache.has('h2'), true); // unchanged
 });
+
+test('cache: same content across two URIs reuses the cached diagnostics', () => {
+  // Spec testing-strategy bullet: "same content across two URIs returns
+  // equivalent diagnostics from cache." validateDocument is content-keyed via
+  // the server's documentCache; this test exercises the invariant that two
+  // URIs with identical content hash to the same bucket and that evicting
+  // ONE of them while another still references the hash does NOT clear it.
+  documentCache.clear();
+  uriToHash.clear();
+  const content = 'SELECT 1';
+  // Two URIs, same content → same hash. Use the same key by hand.
+  documentCache.set('shared', [{ message: 'x' } as any]);
+  uriToHash.set('file:///A.yaml', 'shared');
+  uriToHash.set('file:///B.yaml', 'shared');
+
+  evictUri('file:///A.yaml');
+  // B still references 'shared', so the cache entry must remain.
+  assert.equal(uriToHash.has('file:///A.yaml'), false);
+  assert.equal(uriToHash.get('file:///B.yaml'), 'shared');
+  assert.equal(documentCache.has('shared'), true,
+    'cache entry should survive when another URI still references the hash');
+
+  // Now evict B — no remaining references, cache slot must go.
+  evictUri('file:///B.yaml');
+  assert.equal(documentCache.has('shared'), false);
+});
 ```
 
 - [ ] **Step 2: Run, verify they fail**
@@ -1931,14 +2141,21 @@ export const documentCache = new Map<string, Diagnostic[]>();
 export const uriToHash = new Map<string, string>();
 
 /**
- * Remove the cache entry associated with a URI (call this on documents.onDidClose
- * to keep the cache from growing unbounded across a session).
+ * Remove a URI's reference to its cached diagnostics. Only drops the cache
+ * entry if no other URI still references the same content hash — this matters
+ * when multiple workspaces or duplicated files share identical content.
  */
 export function evictUri(uri: string): void {
   const hash = uriToHash.get(uri);
-  if (hash !== undefined) {
+  if (hash === undefined) return;
+  uriToHash.delete(uri);
+  // After this URI is gone, check whether any other URI still references the hash.
+  let stillReferenced = false;
+  for (const h of uriToHash.values()) {
+    if (h === hash) { stillReferenced = true; break; }
+  }
+  if (!stillReferenced) {
     documentCache.delete(hash);
-    uriToHash.delete(uri);
   }
 }
 
@@ -1946,8 +2163,10 @@ export function evictUri(uri: string): void {
  * Build a BatonDocument, run every rule, return the document and the per-rule results.
  * Conversion to LSP Diagnostic and dedup happens in server.ts using the returned data.
  *
- * Ordering: scope:'query' rules run first (preserves today's diagnostic ordering),
- * then scope:'document' rules. This keeps dedup byte-identical with v1.4.0.
+ * Loop order matters: queries-OUTER, rules-INNER. This mirrors today's
+ * `for (queryInfo) { validateSql(...) }` from src/server/server.ts so the dedup
+ * outcome (which keeps the first equal diagnostic) is byte-identical with v1.4.0.
+ * Document-scope rules run after all query-scope iterations for the same reason.
  */
 export function validateDocument(
   yamlContent: string,
@@ -1979,13 +2198,14 @@ export function validateDocument(
     }
   };
 
-  // Query-scope rules first, document-scope rules after.
-  for (const rule of allValidationRules) {
-    if (rule.scope === 'document') continue;
-    for (const query of document.queries) {
+  // Queries OUTER, rules INNER (matches today's server.ts ordering).
+  for (const query of document.queries) {
+    for (const rule of allValidationRules) {
+      if (rule.scope === 'document') continue;
       runRule(rule, query.normalizedSql, query);
     }
   }
+  // Document-scope rules run after all query-scope iterations.
   for (const rule of allValidationRules) {
     if (rule.scope !== 'document') continue;
     runRule(rule, '', undefined);
@@ -2001,7 +2221,7 @@ export function validateDocument(
 node --import tsx --test src/validation/pipeline.test.ts 2>&1 | tail -10
 ```
 
-Expected: `pass 6`, `fail 0`.
+Expected: `pass 7`, `fail 0`.
 
 - [ ] **Step 5: Run full suite**
 
@@ -2009,7 +2229,7 @@ Expected: `pass 6`, `fail 0`.
 npm test 2>&1 | tail -6
 ```
 
-Expected: `pass 102` (96 + 6), `fail 0`.
+Expected: `pass 120` (113 from Task 8 + 7 new), `fail 0`.
 
 - [ ] **Step 6: Commit**
 
@@ -2018,9 +2238,10 @@ git add src/validation/pipeline.ts src/validation/pipeline.test.ts
 git commit -m "validation: add validateDocument orchestrator + documentCache + uriToHash
 
 validateDocument(yamlContent) returns {document, results: PipelineResult[]}.
-Query-scope rules run before document-scope to preserve today's diagnostic
-ordering. Cache stores Diagnostic[] only (not BatonDocument) per the spec;
-uriToHash side index enables eviction on close."
+Loop is queries-outer, rules-inner — mirrors server.ts's iteration to keep
+dedup outcome byte-identical with v1.4.0. Document-scope rules run after
+query-scope. evictUri refcounts so a hash entry shared by multiple URIs
+isn't dropped when one URI closes."
 ```
 
 ---
@@ -2078,11 +2299,20 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     return;
   }
 
-  // The URI's content has changed: drop the old cache slot for it.
-  if (previousHash !== undefined && previousHash !== newHash) {
-    documentCache.delete(previousHash);
-  }
   uriToHash.set(uri, newHash);
+
+  // The URI's content changed: only drop the previous hash's cache slot if no
+  // OTHER URI still references it. This protects multi-URI sessions where two
+  // workspaces have identical content cached under one hash.
+  if (previousHash !== undefined) {
+    let stillReferenced = false;
+    for (const h of uriToHash.values()) {
+      if (h === previousHash) { stillReferenced = true; break; }
+    }
+    if (!stillReferenced) {
+      documentCache.delete(previousHash);
+    }
+  }
 
   // Cache hit (same content under a different URI): reuse the diagnostics.
   const cached = documentCache.get(newHash);
@@ -2223,7 +2453,7 @@ connection.onDidChangeConfiguration(() => {
 npm test 2>&1 | tail -6
 ```
 
-Expected: `pass 102`, `fail 0`. All 14 rule tests + 5 sqlValidator tests + new pipeline/document/parsedQuery tests pass.
+Expected: `pass 120`, `fail 0`. All 14 rule tests + 6 sqlValidator tests + 30 document tests + 7 pipeline tests + 7 parsedQuery tests pass. Task 10 itself adds no new tests; the count stays at Task 9's total.
 
 - [ ] **Step 8: Run the build**
 
@@ -2294,12 +2524,10 @@ export function validateSql(
   originalQuery: string,
   onRuleError?: RuleErrorHandler,
 ): ValidationResult[] {
-  const cacheKey = hashString(sql + '' + originalQuery);
-  if (validationCache.has(cacheKey)) {
-    return validationCache.get(cacheKey)!;
-  }
-
-  // Build a single-query degraded BatonDocument.
+  // Build the ParsedQuery first so the cache key uses `normalizedSql` —
+  // matches the original validateSql, which hashed
+  // `normalizeSQL(sql) + originalQuery`. Two raw SQLs that normalize to the
+  // same string share a cache slot.
   const query = parseQuery({
     rawSql: sql,
     yamlPath: [],
@@ -2307,6 +2535,16 @@ export function validateSql(
     endOffset: sql.length,
     varsScope: new Map(),
   });
+  const cacheKey = hashString(query.normalizedSql + originalQuery);
+  if (validationCache.has(cacheKey)) {
+    return validationCache.get(cacheKey)!;
+  }
+
+  // Build a single-query degraded BatonDocument. NOTE: `yamlContent` holds
+  // raw `originalQuery` — in this back-compat path callers typically pass
+  // `(sql, sql)`, so `yamlContent` is the SQL string itself, not YAML. Rules
+  // that scan `yamlContent` for YAML-shape patterns will find nothing, which
+  // is correct: there's no document context for single-query validation.
   const document: BatonDocument = {
     yaml: null,
     yamlContent: originalQuery,
@@ -2360,7 +2598,7 @@ export function getCacheSize(): number {
 npm test 2>&1 | tail -6
 ```
 
-Expected: `pass 102`, `fail 0`. The 5 `sqlValidator.test.ts` tests plus the new array-return test from Task 1 all pass — `validateSql`'s contract is preserved.
+Expected: `pass 120`, `fail 0`. The 5 `sqlValidator.test.ts` tests plus the new array-return test from Task 1 all pass — `validateSql`'s contract is preserved.
 
 - [ ] **Step 4: Run lint to make sure the unused imports are clean**
 
@@ -2523,7 +2761,7 @@ test('pipeline smoke: degraded doc (invalid YAML) emits no rule diagnostics', ()
 npm test 2>&1 | tail -6
 ```
 
-Expected: `pass 106` (102 + 4), `fail 0`.
+Expected: `pass 124` (120 from Task 11 + 4 new), `fail 0`.
 
 - [ ] **Step 3: Commit**
 
@@ -2548,7 +2786,7 @@ This task has no code changes — it's the final sanity gate.
 npm test 2>&1 | tail -10
 ```
 
-Expected: `pass 106` (or similar — depends on whether you added more tests), `fail 0`.
+Expected: `pass 124` (or similar — depends on whether you added more tests), `fail 0`.
 
 - [ ] **Step 2: Run lint**
 

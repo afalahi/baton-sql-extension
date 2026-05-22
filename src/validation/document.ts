@@ -414,7 +414,36 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
     }
   }
 
-  // actions walked in Task 7.
+  // actions walk
+  if (yamlObj.actions && typeof yamlObj.actions === 'object') {
+    for (const [actionId, actionVal] of Object.entries<any>(yamlObj.actions)) {
+      if (!actionVal || typeof actionVal !== 'object') continue;
+      const actionDef: ActionDef = {
+        id: actionId,
+        name: actionVal.name,
+        arguments: actionVal.arguments,
+        vars: actionVal.vars ? new Map(Object.entries(actionVal.vars).filter(([_, v]) => typeof v === 'string') as [string, string][]) : undefined,
+      };
+
+      if (typeof actionVal.query === 'string' && actionVal.query.length > 0) {
+        const path = ['actions', actionId, 'query'];
+        const varsScope = resolveVarsScope(yamlObj, path);
+        actionDef.query = buildQueryIfPresent(yamlContent, actionVal.query, path, varsScope, doc.queries);
+      }
+      if (Array.isArray(actionVal.queries)) {
+        actionDef.queries = [];
+        for (let j = 0; j < actionVal.queries.length; j++) {
+          const path = ['actions', actionId, 'queries', j];
+          const varsScope = resolveVarsScope(yamlObj, path);
+          const q = buildQueryIfPresent(yamlContent, actionVal.queries[j], path, varsScope, doc.queries);
+          if (q) actionDef.queries.push(q);
+        }
+      }
+
+      doc.actions.set(actionId, actionDef);
+    }
+  }
+
   return doc;
 }
 

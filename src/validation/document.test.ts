@@ -529,3 +529,41 @@ resource_types:
   assert.ok(grantQ);
   assert.equal(grantQ!.varsScope.get('principal_id'), 'principal.ID');
 });
+
+test('buildBatonDocument: walks actions with single query', () => {
+  const yaml = `
+actions:
+  disable_user:
+    name: Disable
+    arguments:
+      user_id: { name: User, type: string, required: true, description: x }
+    query: "UPDATE users SET active=false WHERE id=?<user_id>"
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.equal(doc.queries.length, 1);
+  const action = doc.actions.get('disable_user');
+  assert.ok(action);
+  assert.equal(action!.name, 'Disable');
+  assert.ok(action!.query);
+  assert.equal(action!.query!.varsScope.get('user_id'), 'string');
+  assert.equal(action!.query!.yamlPath[0], 'actions');
+});
+
+test('buildBatonDocument: walks actions with queries array', () => {
+  const yaml = `
+actions:
+  batch_update:
+    name: Batch
+    vars:
+      ts: input.timestamp
+    queries:
+      - UPDATE a SET x=1
+      - UPDATE b SET y=2
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.equal(doc.queries.length, 2);
+  const action = doc.actions.get('batch_update');
+  assert.ok(action);
+  assert.equal(action!.queries?.length, 2);
+  assert.equal(action!.queries![0].varsScope.get('ts'), 'input.timestamp');
+});

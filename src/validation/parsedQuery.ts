@@ -9,6 +9,8 @@ export interface ParsedQuery {
   ast: any | null;
   /** Parser error message, or null. */
   astError: string | null;
+  /** node-sql-parser dialect used for the parse (undefined = default/mysql). */
+  dialect: string | undefined;
   /** YAML path to this query, e.g. ['resource_types', 'user', 'list', 'query']. */
   yamlPath: (string | number)[];
   /** Absolute byte offset in BatonDocument.yamlContent. */
@@ -27,6 +29,8 @@ export interface ParseQueryInput {
   startOffset: number;
   endOffset: number;
   varsScope: Map<string, string>;
+  /** node-sql-parser dialect ('postgresql', 'mysql', 'transactsql', etc.). Undefined uses the default. */
+  dialect?: string;
 }
 
 const PARAM_RE = /\?\<([^>]+)\>/g;
@@ -37,7 +41,9 @@ export function parseQuery(input: ParseQueryInput): ParsedQuery {
   let ast: any | null = null;
   let astError: string | null = null;
   try {
-    ast = getParser().astify(normalizedSql);
+    // node-sql-parser accepts opt=undefined as "use default dialect" — no need to branch.
+    const options = input.dialect ? { database: input.dialect } : undefined;
+    ast = getParser().astify(normalizedSql, options);
   } catch (err: any) {
     astError = err?.message ?? String(err);
   }
@@ -52,6 +58,7 @@ export function parseQuery(input: ParseQueryInput): ParsedQuery {
     normalizedSql,
     ast,
     astError,
+    dialect: input.dialect,
     yamlPath: input.yamlPath,
     startOffset: input.startOffset,
     endOffset: input.endOffset,

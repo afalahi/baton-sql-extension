@@ -1,5 +1,6 @@
 import { parseYaml } from '../utils/yamlUtils';
 import { ParsedQuery, parseQuery } from './parsedQuery';
+import { schemeToDialect } from './dialect';
 
 /**
  * Resolve the `vars` map visible to a query at the given yamlPath.
@@ -213,6 +214,9 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
     };
   }
 
+  // Resolve dialect once. undefined when scheme is missing or unsupported.
+  const dialect = schemeToDialect(doc.connect?.scheme);
+
   // resource_types walk.
   // The OUTER iteration follows YAML key order (Object.entries on the
   // resource_types map). Within each resource type, sub-sections are walked
@@ -239,7 +243,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
         const listPath = ['resource_types', rtId, 'list'];
         const varsScope = resolveVarsScope(yamlObj, [...listPath, 'query']);
         const query = buildQueryIfPresent(
-          yamlContent, rtVal.list.query, [...listPath, 'query'], varsScope, doc.queries
+          yamlContent, rtVal.list.query, [...listPath, 'query'], varsScope, doc.queries, dialect
         );
         rt.list = {
           vars: varsScope,
@@ -255,7 +259,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
         const entPath = ['resource_types', rtId, 'entitlements'];
         const varsScope = resolveVarsScope(yamlObj, [...entPath, 'query']);
         const query = buildQueryIfPresent(
-          yamlContent, rtVal.entitlements.query, [...entPath, 'query'], varsScope, doc.queries
+          yamlContent, rtVal.entitlements.query, [...entPath, 'query'], varsScope, doc.queries, dialect
         );
         rt.entitlements = {
           vars: varsScope,
@@ -285,6 +289,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
                     [...provPath, 'grant', 'queries', j],
                     varsScope,
                     doc.queries,
+                    dialect,
                   );
                 }
               }
@@ -296,6 +301,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
                     [...provPath, 'revoke', 'queries', j],
                     varsScope,
                     doc.queries,
+                    dialect,
                   );
                 }
               }
@@ -312,7 +318,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
           const gPath = ['resource_types', rtId, 'grants', i];
           const varsScope = resolveVarsScope(yamlObj, [...gPath, 'query']);
           const query = buildQueryIfPresent(
-            yamlContent, g.query, [...gPath, 'query'], varsScope, doc.queries
+            yamlContent, g.query, [...gPath, 'query'], varsScope, doc.queries, dialect
           );
           rt.grants.push({
             vars: varsScope,
@@ -349,6 +355,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
                   [...provPath, 'grant', 'queries', j],
                   varsScope,
                   doc.queries,
+                  dialect,
                 );
               }
             }
@@ -361,6 +368,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
                   [...provPath, 'revoke', 'queries', j],
                   varsScope,
                   doc.queries,
+                  dialect,
                 );
               }
             }
@@ -378,7 +386,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
         if (ap.validate?.query) {
           const validatePath = [...apPath, 'validate', 'query'];
           const varsScope = resolveVarsScope(yamlObj, validatePath);
-          buildQueryIfPresent(yamlContent, ap.validate.query, validatePath, varsScope, doc.queries);
+          buildQueryIfPresent(yamlContent, ap.validate.query, validatePath, varsScope, doc.queries, dialect);
         }
 
         // create.queries
@@ -387,7 +395,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
             const queriesPath = [...apPath, 'create', 'queries', j];
             const varsScope = resolveVarsScope(yamlObj, queriesPath);
             buildQueryIfPresent(
-              yamlContent, ap.create.queries[j], queriesPath, varsScope, doc.queries
+              yamlContent, ap.create.queries[j], queriesPath, varsScope, doc.queries, dialect
             );
           }
         }
@@ -402,7 +410,7 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
             const queriesPath = [...crPath, 'update', 'queries', j];
             const varsScope = resolveVarsScope(yamlObj, queriesPath);
             buildQueryIfPresent(
-              yamlContent, cr.update.queries[j], queriesPath, varsScope, doc.queries
+              yamlContent, cr.update.queries[j], queriesPath, varsScope, doc.queries, dialect
             );
           }
         }
@@ -428,14 +436,14 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
       if (typeof actionVal.query === 'string' && actionVal.query.length > 0) {
         const path = ['actions', actionId, 'query'];
         const varsScope = resolveVarsScope(yamlObj, path);
-        actionDef.query = buildQueryIfPresent(yamlContent, actionVal.query, path, varsScope, doc.queries);
+        actionDef.query = buildQueryIfPresent(yamlContent, actionVal.query, path, varsScope, doc.queries, dialect);
       }
       if (Array.isArray(actionVal.queries)) {
         actionDef.queries = [];
         for (let j = 0; j < actionVal.queries.length; j++) {
           const path = ['actions', actionId, 'queries', j];
           const varsScope = resolveVarsScope(yamlObj, path);
-          const q = buildQueryIfPresent(yamlContent, actionVal.queries[j], path, varsScope, doc.queries);
+          const q = buildQueryIfPresent(yamlContent, actionVal.queries[j], path, varsScope, doc.queries, dialect);
           if (q) actionDef.queries.push(q);
         }
       }
@@ -460,7 +468,8 @@ function buildQueryIfPresent(
   rawSql: any,
   yamlPath: (string | number)[],
   varsScope: Map<string, string>,
-  into: ParsedQuery[]
+  into: ParsedQuery[],
+  dialect: string | undefined,
 ): ParsedQuery | null {
   if (typeof rawSql !== 'string' || rawSql.length === 0) return null;
   const { startOffset, endOffset } = locateQueryInYaml(yamlContent, rawSql, yamlPath);
@@ -470,6 +479,7 @@ function buildQueryIfPresent(
     startOffset,
     endOffset,
     varsScope,
+    dialect,
   });
   into.push(query);
   return query;

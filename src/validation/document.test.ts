@@ -424,3 +424,108 @@ resource_types:
   assert.ok(grantQ);
   assert.deepEqual(grantQ!.yamlPath, ['resource_types', 'user', 'grants', 0, 'query']);
 });
+
+test('buildBatonDocument: walks account_provisioning.create.queries', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    account_provisioning:
+      schema:
+        - { name: username, description: u, type: string, placeholder: x, required: true }
+      credentials:
+        random_password: { preferred: true }
+      validate:
+        vars:
+          email: input.email
+        query: "SELECT 1 FROM users WHERE email = ?<email>"
+      create:
+        vars:
+          username: input.username
+        queries:
+          - "INSERT INTO users (name) VALUES (?<username>)"
+          - "SELECT last_insert_id()"
+`;
+  const doc = buildBatonDocument(yaml);
+  // list + validate.query + 2 create.queries = 4
+  assert.equal(doc.queries.length, 4);
+  const validateQ = doc.queries.find(q => q.yamlPath.includes('validate'));
+  assert.ok(validateQ);
+  assert.equal(validateQ!.varsScope.get('email'), 'input.email');
+  assert.ok(validateQ!.usedParams.has('email'));
+  const createQ0 = doc.queries.find(q =>
+    q.yamlPath.includes('create') && q.yamlPath[q.yamlPath.length - 1] === 0
+  );
+  assert.ok(createQ0);
+  assert.equal(createQ0!.varsScope.get('username'), 'input.username');
+});
+
+test('buildBatonDocument: walks credential_rotation.update.queries', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    credential_rotation:
+      credentials:
+        random_password: { preferred: true }
+      update:
+        vars:
+          new_password: input.password
+        queries:
+          - "UPDATE users SET pw = ?<new_password>"
+`;
+  const doc = buildBatonDocument(yaml);
+  // list + 1 update query = 2
+  assert.equal(doc.queries.length, 2);
+  const updateQ = doc.queries.find(q => q.yamlPath.includes('credential_rotation'));
+  assert.ok(updateQ);
+  assert.equal(updateQ!.varsScope.get('new_password'), 'input.password');
+});
+
+test('buildBatonDocument: walks entitlements.map[].provisioning queries', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    entitlements:
+      query: SELECT 1 FROM perms
+      map:
+        - id: ".name"
+          display_name: ".name"
+          description: ent
+          purpose: permission
+          grantable_to: [user]
+          provisioning:
+            vars:
+              principal_id: principal.ID
+            grant:
+              queries:
+                - "INSERT INTO ents (user) VALUES (?<principal_id>)"
+            revoke:
+              queries:
+                - "DELETE FROM ents WHERE user = ?<principal_id>"
+`;
+  const doc = buildBatonDocument(yaml);
+  // list + entitlements.query + 1 grant + 1 revoke = 4
+  assert.equal(doc.queries.length, 4);
+  const grantQ = doc.queries.find(q =>
+    q.yamlPath.includes('provisioning') && q.yamlPath.includes('grant')
+  );
+  assert.ok(grantQ);
+  assert.equal(grantQ!.varsScope.get('principal_id'), 'principal.ID');
+});

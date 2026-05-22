@@ -266,13 +266,40 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
         };
 
         // entitlements.map[i].id (expression) → definedEntitlementIds.expression
+        // and walk per-mapping provisioning queries.
         if (Array.isArray(rtVal.entitlements.map)) {
-          for (const m of rtVal.entitlements.map) {
-            if (m && typeof m.id === 'string') {
+          for (let i = 0; i < rtVal.entitlements.map.length; i++) {
+            const m = rtVal.entitlements.map[i];
+            if (!m || typeof m !== 'object') continue;
+            if (typeof m.id === 'string') {
               doc.definedEntitlementIds.expression.add(m.id);
             }
-            // entitlements.map[i].provisioning.{grant,revoke}.queries[j]
-            // Handled in Task 6 (separate task to keep this manageable).
+            if (m.provisioning && typeof m.provisioning === 'object') {
+              const provPath = ['resource_types', rtId, 'entitlements', 'map', i, 'provisioning'];
+              const varsScope = resolveVarsScope(yamlObj, [...provPath, 'grant', 'queries', 0]);
+              if (Array.isArray(m.provisioning.grant?.queries)) {
+                for (let j = 0; j < m.provisioning.grant.queries.length; j++) {
+                  buildQueryIfPresent(
+                    yamlContent,
+                    m.provisioning.grant.queries[j],
+                    [...provPath, 'grant', 'queries', j],
+                    varsScope,
+                    doc.queries,
+                  );
+                }
+              }
+              if (Array.isArray(m.provisioning.revoke?.queries)) {
+                for (let j = 0; j < m.provisioning.revoke.queries.length; j++) {
+                  buildQueryIfPresent(
+                    yamlContent,
+                    m.provisioning.revoke.queries[j],
+                    [...provPath, 'revoke', 'queries', j],
+                    varsScope,
+                    doc.queries,
+                  );
+                }
+              }
+            }
           }
         }
       }
@@ -342,8 +369,46 @@ export function buildBatonDocument(yamlContent: string): BatonDocument {
         }
       }
 
-      // account_provisioning + credential_rotation: structural retention only.
-      // Their queries are walked in Task 6.
+      // account_provisioning
+      if (rtVal.account_provisioning && typeof rtVal.account_provisioning === 'object') {
+        const apPath = ['resource_types', rtId, 'account_provisioning'];
+        const ap = rtVal.account_provisioning;
+
+        // validate.query
+        if (ap.validate?.query) {
+          const validatePath = [...apPath, 'validate', 'query'];
+          const varsScope = resolveVarsScope(yamlObj, validatePath);
+          buildQueryIfPresent(yamlContent, ap.validate.query, validatePath, varsScope, doc.queries);
+        }
+
+        // create.queries
+        if (Array.isArray(ap.create?.queries)) {
+          for (let j = 0; j < ap.create.queries.length; j++) {
+            const queriesPath = [...apPath, 'create', 'queries', j];
+            const varsScope = resolveVarsScope(yamlObj, queriesPath);
+            buildQueryIfPresent(
+              yamlContent, ap.create.queries[j], queriesPath, varsScope, doc.queries
+            );
+          }
+        }
+      }
+
+      // credential_rotation
+      if (rtVal.credential_rotation && typeof rtVal.credential_rotation === 'object') {
+        const crPath = ['resource_types', rtId, 'credential_rotation'];
+        const cr = rtVal.credential_rotation;
+        if (Array.isArray(cr.update?.queries)) {
+          for (let j = 0; j < cr.update.queries.length; j++) {
+            const queriesPath = [...crPath, 'update', 'queries', j];
+            const varsScope = resolveVarsScope(yamlObj, queriesPath);
+            buildQueryIfPresent(
+              yamlContent, cr.update.queries[j], queriesPath, varsScope, doc.queries
+            );
+          }
+        }
+      }
+
+      // account_provisioning + credential_rotation: structural retention.
       rt.accountProvisioning = rtVal.account_provisioning;
       rt.credentialRotation = rtVal.credential_rotation;
     }

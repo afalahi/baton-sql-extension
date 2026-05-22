@@ -35,6 +35,14 @@ test('schemeToDialect: bigquery → bigquery', () => {
   assert.equal(schemeToDialect('bigquery'), 'bigquery');
 });
 
+test('schemeToDialect: redshift → redshift', () => {
+  assert.equal(schemeToDialect('redshift'), 'redshift');
+});
+
+test('schemeToDialect: db2 → db2', () => {
+  assert.equal(schemeToDialect('db2'), 'db2');
+});
+
 test('schemeToDialect: oracle → undefined (no node-sql-parser support)', () => {
   // node-sql-parser 5.3.9 does not support Oracle. Fall back to default
   // so the parser at least attempts the query (mysql-flavored).

@@ -268,3 +268,159 @@ connect:
   assert.equal(doc.connect?.host, 'localhost');
   assert.equal(doc.connect?.database, 'app');
 });
+
+test('buildBatonDocument: walks list query', () => {
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: A user
+    list:
+      query: |
+        SELECT id, name
+        FROM users
+      pagination:
+        strategy: offset
+        primary_key: id
+      map:
+        id: ".id"
+        display_name: ".name"
+`;
+  const doc = buildBatonDocument(yaml);
+  const rt = doc.resourceTypes.get('user');
+  assert.ok(rt, 'should have user resource type');
+  assert.equal(rt!.name, 'User');
+  assert.equal(rt!.description, 'A user');
+  assert.ok(rt!.list?.query, 'should have list query');
+  assert.ok(rt!.list!.query!.rawSql.includes('SELECT id, name'));
+  assert.equal(doc.queries.length, 1);
+  assert.equal(doc.queries[0].yamlPath[0], 'resource_types');
+  assert.equal(doc.queries[0].yamlPath[1], 'user');
+});
+
+test('buildBatonDocument: walks entitlements query and map', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: A user
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    entitlements:
+      query: |
+        SELECT entitlement_name FROM perms
+      map:
+        - id: ".entitlement_name"
+          display_name: ".entitlement_name"
+          description: "perm"
+          purpose: permission
+          grantable_to: [user]
+`;
+  const doc = buildBatonDocument(yaml);
+  const rt = doc.resourceTypes.get('user')!;
+  assert.ok(rt.entitlements?.query);
+  assert.equal(doc.queries.length, 2);
+});
+
+test('buildBatonDocument: walks multiple grants entries', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: A user
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    grants:
+      - query: SELECT 1 FROM perms
+        vars:
+          resource_id: resource.ID
+        map:
+          - principal_id: ".user_id"
+            principal_type: user
+            entitlement_id: admin
+      - query: SELECT 2 FROM other
+        map:
+          - principal_id: ".user_id"
+            principal_type: user
+            entitlement_id: member
+`;
+  const doc = buildBatonDocument(yaml);
+  const rt = doc.resourceTypes.get('user')!;
+  assert.equal(rt.grants.length, 2);
+  assert.ok(rt.grants[0].query?.rawSql.includes('FROM perms'));
+  assert.ok(rt.grants[1].query?.rawSql.includes('FROM other'));
+  assert.equal(doc.queries.length, 3);
+  assert.equal(rt.grants[0].vars.get('resource_id'), 'resource.ID');
+});
+
+test('buildBatonDocument: walks static_entitlements with provisioning queries', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: A user
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    static_entitlements:
+      - id: admin
+        display_name: Admin
+        description: Admin
+        purpose: permission
+        grantable_to: [user]
+        provisioning:
+          vars:
+            principal_id: principal.ID
+          grant:
+            queries:
+              - "INSERT INTO admin (user_id) VALUES (?<principal_id>)"
+          revoke:
+            queries:
+              - "DELETE FROM admin WHERE user_id = ?<principal_id>"
+`;
+  const doc = buildBatonDocument(yaml);
+  const rt = doc.resourceTypes.get('user')!;
+  assert.equal(rt.staticEntitlements.length, 1);
+  assert.equal(rt.staticEntitlements[0].id, 'admin');
+  assert.equal(doc.queries.length, 3);
+  // Verify varsScope on a provisioning query. The full path for the grant
+  // query is ['resource_types','user','static_entitlements',0,'provisioning','grant','queries',0]
+  const grantQ = doc.queries.find(q =>
+    q.yamlPath[2] === 'static_entitlements' && q.yamlPath[4] === 'provisioning'
+    && q.yamlPath[5] === 'grant'
+  );
+  assert.ok(grantQ, 'should find the grant provisioning query');
+  assert.equal(grantQ!.varsScope.get('principal_id'), 'principal.ID');
+  assert.ok(grantQ!.usedParams.has('principal_id'));
+});
+
+test('buildBatonDocument: yamlPath uses numeric indices for arrays', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: U
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    grants:
+      - query: SELECT GRANT FROM g
+        map:
+          - principal_id: ".id"
+            principal_type: user
+            entitlement_id: m
+`;
+  const doc = buildBatonDocument(yaml);
+  const grantQ = doc.queries.find(q => q.rawSql.includes('GRANT'));
+  assert.ok(grantQ);
+  assert.deepEqual(grantQ!.yamlPath, ['resource_types', 'user', 'grants', 0, 'query']);
+});

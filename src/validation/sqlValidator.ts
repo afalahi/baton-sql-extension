@@ -3,13 +3,22 @@ import { normalizeSQL } from '../utils/sqlUtils';
 import { hashString } from '../utils/stringUtils';
 import { allValidationRules } from './rules';
 
+export type RuleErrorHandler = (ruleName: string, error: unknown) => void;
+
 // Caching system to avoid reprocessing unchanged SQL
 const validationCache = new Map<string, ValidationResult[]>();
 
 /**
- * Validates a single SQL query using all validation rules
+ * Validates a single SQL query using all validation rules.
+ *
+ * If a rule throws, the error is reported via `onRuleError` but validation
+ * continues with the remaining rules — one bad rule must not break the others.
  */
-export function validateSql(sql: string, originalQuery: string): ValidationResult[] {
+export function validateSql(
+  sql: string,
+  originalQuery: string,
+  onRuleError?: RuleErrorHandler
+): ValidationResult[] {
   const normalizedSql = normalizeSQL(sql);
   const cacheKey = hashString(normalizedSql + originalQuery);
 
@@ -31,7 +40,14 @@ export function validateSql(sql: string, originalQuery: string): ValidationResul
         });
       }
     } catch (error) {
-      // Don't fail the whole validation if one rule has an error
+      // A throwing rule must not break the others, but the error needs to
+      // surface somewhere or bugs are invisible. Default: log to console.error.
+      if (onRuleError) {
+        onRuleError(rule.name, error);
+      } else {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error(`[baton-sql] rule '${rule.name}' threw: ${msg}`);
+      }
     }
   }
 

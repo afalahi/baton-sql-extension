@@ -4,9 +4,13 @@ src/**
 .gitignore
 .yarnrc
 tsconfig.json
+tsconfig.eslint.json
 **/*.map
 **/*.ts
 node_modules/**
 webpack.config.js
 eslint.config.js
 .eslintrc.json
+CLAUDE.md
+BATON_SQL_EXTENSION_REFERENCE.md
+out/extension.js

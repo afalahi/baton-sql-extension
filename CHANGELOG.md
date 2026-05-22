@@ -2,6 +2,53 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.4.0] - 2026-05-21
+
+### Changed
+
+- Realigned `schemas/baton-schema.json` with the canonical `baton-sql/pkg/bsql/config.go` to stop flagging valid configs as invalid.
+
+### Added
+
+- **`connect`** now accepts structured fields (`scheme`, `host`, `port`, `database`, `params`) in addition to a DSN; either a DSN or `scheme + host + database` is required.
+- **`connect.databases`** for per-database iteration (`static` list or `discovery_query`).
+- **`resource_types[].skip_entitlements_and_grants`** flag.
+- **`list` / `entitlements` / `grants`**: `vars` and `scope: cluster` for opting out of per-database iteration.
+- **`map`**: `annotations` (entitlement_immutable, external_link).
+- **User traits**: `mfa_enabled`, `sso_enabled`, `login_aliases`.
+- **App traits**: `help_url`.
+- **`pagination.page_size`** (1–1000).
+- **EntitlementMapping**: `slug`, `immutable`, `skip_if`, `provisioning` (now uniformly available on both static and dynamic entitlements), and the new `exclusion_group` shape.
+- **EntitlementProvisioning**: `validation_queries`, `no_transaction`, and `grant.grant_replace` for grant-replace flows.
+- **GrantMapping**: `annotations`, `entitlement_resource_id`.
+- **`account_provisioning.schema[].type`** now accepts `string_list` and `map` in addition to `string`, `boolean`, `int`.
+- **`account_provisioning.credentials.random_password.constraints`** (char_set + min_count) for character-set rules.
+- **`account_provisioning`** now requires `credentials`, `create`, and `validate` (the connector's `staticValidate` fails without them).
+- **`actions`**: `queries` array alternative to `query`, plus `vars` and `no_transaction`.
+
+### Fixed
+
+- **Credentials**: removed the `oneOf` restriction that forced exactly one of `no_password` / `random_password` / `encrypted_password`. The canonical connector allows multiple strategies simultaneously, with `preferred: true` picking the default.
+- **`actions[].action_type`** enum updated to canonical values: `unspecified`, `dynamic`, `account`, `account_update_profile`, `account_disable`, `account_enable` (was `account_enable`, `account_disable`, `custom`).
+- **`actions[].arguments[].type`** enum updated to canonical: `string`, `boolean`, `number`, `string_list`, `string_map` (was `string`, `int`, `boolean`).
+- **`random_password`**: `max_length`, `min_length`, `disallowed_characters` are now optional and marked deprecated (the canonical struct documents them as not implemented).
+- Removed top-level `entitlements`, `grants`, and `static_entitlements` from the schema — they aren't part of the connector's `Config` struct and any value there was silently ignored.
+- Bug: `ambiguousColumnsRule` no longer misses `SELECT *` across multiple tables (node-sql-parser returns `column_ref` for `*`, not the string `"*"`).
+- Bug: `invalidGroupByRule` no longer falsely flags valid `GROUP BY` queries (the parser returns an object with `columns`, not an array).
+- Bug: `invalidJoinRule` no longer flags `CROSS JOIN` as missing an `ON` clause (CROSS JOIN intentionally has no ON).
+- Bug: `unconventionalSqlSyntaxRule` no longer flags `ON CONFLICT (col) DO UPDATE`; the regex now allows an optional conflict target between `ON CONFLICT` and `DO …`.
+- Silent rule exceptions are now logged via `connection.console.error` instead of being swallowed; one bad rule still doesn't break the others.
+
+### Removed
+
+- `credentialMutualExclusionRule` — the canonical `AccountCredentials` struct allows multiple credential strategies; this rule was flagging valid configs.
+- Legacy non-LSP `src/extension.ts` (was never bundled by webpack).
+- Orphaned `batonSQL.applySchema` command from `package.json` (its handler lived only in the deleted legacy file and called a function with an incorrect extension ID).
+
+### Tooling
+
+- Added `npm test` (node:test via tsx). 75 tests across all 14 validation rules and the validator orchestrator, including regression tests for the bugs above and the false positives fixed in v1.3.1 / v1.3.2.
+
 ## [1.3.3] - 2025-11-12
 
 ### Fixed

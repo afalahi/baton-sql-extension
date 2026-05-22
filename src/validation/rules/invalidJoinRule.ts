@@ -26,8 +26,10 @@ export const invalidJoinRule: ValidationRule = {
 
           // Check if this is a join
           if (fromClause.join) {
-            // Verify join has ON clause
-            if (!fromClause.on) {
+            // CROSS JOIN intentionally has no ON clause — it's the cartesian product.
+            if (typeof fromClause.join === 'string' && /cross/i.test(fromClause.join)) {
+              // skip — and continue checking the rest of the from-list
+            } else if (!fromClause.on) {
               const lineResult = findLineWithPattern(
                 originalQuery,
                 fromClause.join,

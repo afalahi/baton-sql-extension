@@ -25,6 +25,7 @@ const clientConfig = {
     path: path.resolve(__dirname, 'out', 'client'),
     filename: 'extension.js',
     libraryTarget: 'commonjs2',
+    clean: true,
   },
   externals: {
     vscode: 'commonjs vscode',
@@ -56,6 +57,7 @@ const serverConfig = {
     path: path.resolve(__dirname, 'out', 'server'),
     filename: 'server.js',
     libraryTarget: 'commonjs2',
+    clean: true,
   },
   externals: {
     vscode: 'commonjs vscode',

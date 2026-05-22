@@ -6,5 +6,5 @@
     "sourceMap": true,
     "strict": true
   },
-  "exclude": ["node_modules", ".vscode-test"]
+  "exclude": ["node_modules", ".vscode-test", "src/**/*.test.ts"]
 }

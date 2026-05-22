@@ -175,22 +175,22 @@ npm run package    # Create .vsix file
 
 ## Validation Rules
 
-The extension includes 14 comprehensive validation rules:
+The extension includes 14 SQL validation rules:
 
 1. **Missing Comma Rule** - Detects missing commas in SELECT, INSERT, UPDATE
 2. **Keyword Spelling Rule** - Catches typos in SQL keywords
 3. **Missing FROM Rule** - Ensures SELECT has FROM clause
 4. **Unclosed Parentheses Rule** - Detects unbalanced parentheses
-5. **Invalid JOIN Rule** - Validates JOIN syntax and ON clauses
-6. **Ambiguous Columns Rule** - Detects ambiguous column references
-7. **Invalid GROUP BY Rule** - Validates GROUP BY with aggregates
-8. **Invalid ORDER BY Rule** - Validates ORDER BY references
+5. **Invalid JOIN Rule** - Validates JOIN syntax and ON clauses (CROSS JOIN exempt)
+6. **Ambiguous Columns Rule** - Detects `SELECT *` across multiple tables
+7. **Invalid GROUP BY Rule** - Flags aggregates mixed with non-aggregates and no GROUP BY
+8. **Invalid ORDER BY Rule** - Flags positional `ORDER BY 1`
 9. **Duplicate Aliases Rule** - Detects duplicate table aliases
-10. **Property Name Typos Rule** - Catches common YAML typos
-11. **Baton Parameter Validation Rule** - Validates ?<param> syntax
-12. **Credential Mutual Exclusion Rule** - Ensures proper credential config
-13. **Trailing Comma Rule** - Detects invalid trailing commas
-14. **Deduplication** - Prevents duplicate errors from repeated queries
+10. **Property Name Typos Rule** - Catches common YAML typos (e.g., `static_entitlement` → `static_entitlements`)
+11. **Baton Parameter Validation Rule** - Validates `?<param>` syntax
+12. **Trailing Comma Rule** - Detects invalid trailing commas before `FROM` / `WHERE`
+13. **Vars / Query Mismatch Rule** - Flags `vars` entries unused by the query and `?<param>` references missing from `vars`
+14. **Unconventional SQL Syntax Rule** - PostgreSQL-specific checks (ON CONFLICT, RETURNING, gen_salt, crypt, COALESCE, DATE literals)
 
 ## Schema Support
 

@@ -135,7 +135,10 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
     const allDiagnostics: Diagnostic[] = [];
 
     for (const queryInfo of sqlQueries) {
-      const validationResults = validateSql(queryInfo.query, content);
+      const validationResults = validateSql(queryInfo.query, content, (ruleName, error) => {
+        const msg = error instanceof Error ? (error.stack || error.message) : String(error);
+        connection.console.error(`[Baton SQL] rule '${ruleName}' threw while validating ${uri}: ${msg}`);
+      });
 
       if (validationResults.length > 0) {
         for (const result of validationResults) {

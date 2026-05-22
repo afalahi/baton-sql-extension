@@ -138,6 +138,7 @@ export interface ResourceTypeDef {
     pagination?: any;
     scope?: string;
   };
+  /** Always initialized to [] by buildBatonDocument — never null. */
   grants: Array<{
     vars: Map<string, string>;
     query: ParsedQuery | null;
@@ -145,6 +146,7 @@ export interface ResourceTypeDef {
     pagination?: any;
     scope?: string;
   }>;
+  /** Always initialized to [] by buildBatonDocument — never null. */
   staticEntitlements: Array<{
     id: string;
     provisioning?: { vars: Map<string, string>; grant?: any; revoke?: any };

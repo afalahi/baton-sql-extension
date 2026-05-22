@@ -248,6 +248,7 @@ test('buildBatonDocument: returns degraded doc on invalid YAML', () => {
 
 test('buildBatonDocument: empty YAML produces empty doc', () => {
   const doc = buildBatonDocument('');
+  assert.equal(doc.yaml, null); // js-yaml returns undefined for empty string → degraded path
   assert.equal(doc.queries.length, 0);
   assert.equal(doc.resourceTypes.size, 0);
   assert.equal(doc.connect, undefined);

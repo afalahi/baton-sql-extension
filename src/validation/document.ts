@@ -16,6 +16,7 @@ export function resolveVarsScope(
     let cur = root;
     for (const s of segs) {
       if (cur == null) return undefined;
+      // eslint-disable-next-line security/detect-object-injection -- path segments come from the typed walker, not user input
       cur = cur[s];
     }
     return cur;
@@ -88,6 +89,7 @@ export function resolveVarsScope(
   if (section === 'account_provisioning') {
     const sub = yamlPath[3];
     if (sub === 'create' || sub === 'validate') {
+      // eslint-disable-next-line security/detect-object-injection -- sub is constrained to 'create' | 'validate' by the if-check above
       mergeVars(rtRoot.account_provisioning?.[sub]?.vars);
     }
     return scope;

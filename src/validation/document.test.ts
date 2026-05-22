@@ -159,6 +159,27 @@ resource_types:
   assert.equal(scope.get('principal_id'), 'principal.ID');
 });
 
+test('resolveVarsScope: entitlements.map[i].provisioning.revoke picks up map[i].provisioning.vars', () => {
+  const doc = parse(`
+resource_types:
+  user:
+    entitlements:
+      query: SELECT * FROM perms
+      map:
+        - id: ".name"
+          provisioning:
+            vars:
+              principal_id: principal.ID
+            revoke:
+              queries:
+                - DELETE 1
+`);
+  const scope = resolveVarsScope(doc, [
+    'resource_types', 'user', 'entitlements', 'map', 0, 'provisioning', 'revoke', 'queries', 0,
+  ]);
+  assert.equal(scope.get('principal_id'), 'principal.ID');
+});
+
 test('resolveVarsScope: static_entitlements.revoke uses the same provisioning.vars as grant', () => {
   const doc = parse(`
 resource_types:

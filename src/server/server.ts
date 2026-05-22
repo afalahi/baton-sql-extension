@@ -15,7 +15,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Import validation logic
-import { validateSql, clearValidationCache } from '../validation';
+import { clearValidationCache } from '../validation';
 import { validateDocument, documentCache, uriToHash, evictUri } from '../validation/pipeline';
 import { isBatonSQLFilePath, hashString } from '../utils/serverUtils';
 

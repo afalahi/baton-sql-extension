@@ -122,3 +122,118 @@ test('cache: same content across two URIs reuses the cached diagnostics', () => 
   evictUri('file:///B.yaml');
   assert.equal(documentCache.has('shared'), false);
 });
+
+test('pipeline smoke: SELECT with UNION subquery (v1.3.2 regression fixture)', () => {
+  // No comma should be flagged — UNION inside subquery must not terminate outer SELECT.
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: |
+        SELECT
+          u.id,
+          u.name
+        FROM users u
+        WHERE u.id IN (
+          SELECT user_id FROM admins
+          UNION
+          SELECT user_id FROM superusers
+        )
+      pagination:
+        strategy: offset
+        primary_key: id
+      map:
+        id: ".id"
+        display_name: ".name"
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const missingComma = results.filter(r => /missing comma/i.test(r.result.errorMessage || ''));
+  assert.equal(missingComma.length, 0, 'no missing-comma errors should be flagged');
+});
+
+test('pipeline smoke: INSERT with paren on own line (v1.3.1 regression fixture)', () => {
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1 FROM users
+      pagination:
+        strategy: offset
+        primary_key: id
+      map:
+        id: ".id"
+        display_name: ".name"
+    account_provisioning:
+      schema:
+        - { name: username, description: u, type: string, placeholder: x, required: true }
+      credentials:
+        random_password: { preferred: true }
+      validate:
+        query: "SELECT 1"
+      create:
+        queries:
+          - |
+            INSERT INTO users (
+              name,
+              email,
+              age
+            ) VALUES (
+              'alice',
+              'a@b.com',
+              30
+            )
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const missingComma = results.filter(r => /missing comma/i.test(r.result.errorMessage || ''));
+  assert.equal(missingComma.length, 0);
+});
+
+test('pipeline smoke: a real broken query produces missing-comma diagnostics', () => {
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: |
+        SELECT
+          id,
+          name
+          email
+        FROM users
+      pagination:
+        strategy: offset
+        primary_key: id
+      map:
+        id: ".id"
+        display_name: ".name"
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const missingComma = results.filter(r => /missing comma/i.test(r.result.errorMessage || ''));
+  assert.ok(missingComma.length > 0, 'should flag the missing comma between name and email');
+});
+
+test('pipeline smoke: degraded doc (invalid YAML) emits no rule diagnostics', () => {
+  documentCache.clear();
+  const { results } = validateDocument(': : : :');
+  assert.equal(results.length, 0);
+});

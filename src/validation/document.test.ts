@@ -567,3 +567,94 @@ actions:
   assert.equal(action!.queries?.length, 2);
   assert.equal(action!.queries![0].varsScope.get('ts'), 'input.timestamp');
 });
+
+test('buildBatonDocument: definedEntitlementIds.literal from static_entitlements', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    static_entitlements:
+      - { id: admin, display_name: A, description: a, purpose: permission, grantable_to: [user] }
+      - { id: member, display_name: M, description: m, purpose: assignment, grantable_to: [user] }
+  team:
+    name: Team
+    description: t
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    static_entitlements:
+      - { id: owner, display_name: O, description: o, purpose: permission, grantable_to: [user] }
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.deepEqual(
+    [...doc.definedEntitlementIds.literal].sort(),
+    ['admin', 'member', 'owner']
+  );
+});
+
+test('buildBatonDocument: definedEntitlementIds.expression from entitlements.map', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    entitlements:
+      query: SELECT * FROM perms
+      map:
+        - id: ".name"
+          display_name: ".name"
+          description: x
+          purpose: permission
+          grantable_to: [user]
+        - id: "slugify(.name)"
+          display_name: ".name"
+          description: y
+          purpose: permission
+          grantable_to: [user]
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.deepEqual(
+    [...doc.definedEntitlementIds.expression].sort(),
+    ['.name', 'slugify(.name)']
+  );
+  assert.equal(doc.definedEntitlementIds.literal.size, 0);
+});
+
+test('buildBatonDocument: knownResourceTypeIds is the resource_types key set', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: U
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+  group:
+    name: G
+    description: g
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+  role:
+    name: R
+    description: r
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.deepEqual([...doc.knownResourceTypeIds].sort(), ['group', 'role', 'user']);
+});

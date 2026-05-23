@@ -20,6 +20,8 @@ export { actionQueryShapeRule } from './actionQueryShapeRule';
 export { actionArgumentDefaultRule } from './actionArgumentDefaultRule';
 export { principalTypeReferenceRule } from './principalTypeReferenceRule';
 export { entitlementIdReferenceRule } from './entitlementIdReferenceRule';
+export { traitColumnReferenceRule } from './traitColumnReferenceRule';
+export { staticEntitlementIdUniquenessRule } from './staticEntitlementIdUniquenessRule';
 
 import { ValidationRule } from '../types';
 import { missingCommaRule } from './missingCommaRule';
@@ -43,6 +45,8 @@ import { actionQueryShapeRule } from './actionQueryShapeRule';
 import { actionArgumentDefaultRule } from './actionArgumentDefaultRule';
 import { principalTypeReferenceRule } from './principalTypeReferenceRule';
 import { entitlementIdReferenceRule } from './entitlementIdReferenceRule';
+import { traitColumnReferenceRule } from './traitColumnReferenceRule';
+import { staticEntitlementIdUniquenessRule } from './staticEntitlementIdUniquenessRule';
 
 // Array of all validation rules for easy consumption.
 // Note: the connector's AccountCredentials struct allows multiple credential
@@ -70,4 +74,6 @@ export const allValidationRules: ValidationRule[] = [
   actionArgumentDefaultRule,
   principalTypeReferenceRule,
   entitlementIdReferenceRule,
+  traitColumnReferenceRule,
+  staticEntitlementIdUniquenessRule,
 ];

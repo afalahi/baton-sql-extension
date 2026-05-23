@@ -2,6 +2,24 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.10.0] - 2026-05-23
+
+### Added
+
+Two new document-scope validation rules with two supporting utility helpers:
+
+- **`trait-column-reference`** — walks `resource_types.<rt>.list.map.traits` recursively and flags column references (e.g., `.email`) that aren't selected by the corresponding `list.query`. Skips when the query failed to parse, when the query uses `SELECT *`, or when the SELECT shape can't be enumerated.
+- **`static-entitlement-uniqueness`** — flags duplicate `static_entitlements[].id` values within a single resource type. The connector treats `(resource_type, id)` as the entitlement primary key.
+
+### Supporting utilities
+
+- `extractColumnRefs(expr)` in `src/utils/celUtils.ts` — extracts top-level `.col` references from connector expressions while skipping chained accesses like `.profile.first_name`.
+- `extractSelectColumns(ast)` in `src/utils/sqlUtils.ts` — returns the set of column names + aliases available to row-level expressions, plus a `hasWildcard` flag for `SELECT *`.
+
+### Behavior deltas
+
+Configs that reference an unselected column inside a trait expression, or duplicate a static entitlement ID within a resource type, now produce diagnostics in the editor. Configs with `SELECT *` or unparseable queries see no change.
+
 ## [1.9.0] - 2026-05-23
 
 ### Added

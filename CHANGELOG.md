@@ -2,6 +2,21 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.9.0] - 2026-05-23
+
+### Added
+
+Two new document-scope validation rules covering cross-query reference integrity:
+
+- **`principal-type-reference`** — flags `grants[].map[].principal_type` values that look like literal identifiers but don't name any defined `resource_types` key. Surfaces a `Did you mean '<resource_type>'?` suggestion when a close match exists (Levenshtein distance ≤ 2).
+- **`entitlement-id-reference`** — flags `grants[].map[].entitlement_id` values that look like literals but don't match any `static_entitlements[].id` in the document. Skips entirely on documents that define no static entitlements (to avoid false positives in dynamic-entitlements-only configs). Surfaces a did-you-mean suggestion when applicable.
+
+Both rules apply a conservative heuristic — values containing dots, quotes, operators, or whitespace are treated as CEL/jq expressions and skipped without checking.
+
+### Behavior deltas
+
+Configs that misspell a resource_type name in `principal_type`, or reference an entitlement that doesn't exist in `static_entitlements`, now produce diagnostics in the editor. Configs using expression-style references see no change.
+
 ## [1.8.0] - 2026-05-23
 
 ### Added

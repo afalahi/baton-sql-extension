@@ -17,6 +17,7 @@ export { scopeEnumRule } from './scopeEnumRule';
 export { randomPasswordConstraintsRule } from './randomPasswordConstraintsRule';
 export { databasesConfigRule } from './databasesConfigRule';
 export { actionQueryShapeRule } from './actionQueryShapeRule';
+export { actionArgumentDefaultRule } from './actionArgumentDefaultRule';
 
 import { ValidationRule } from '../types';
 import { missingCommaRule } from './missingCommaRule';
@@ -37,6 +38,7 @@ import { scopeEnumRule } from './scopeEnumRule';
 import { randomPasswordConstraintsRule } from './randomPasswordConstraintsRule';
 import { databasesConfigRule } from './databasesConfigRule';
 import { actionQueryShapeRule } from './actionQueryShapeRule';
+import { actionArgumentDefaultRule } from './actionArgumentDefaultRule';
 
 // Array of all validation rules for easy consumption.
 // Note: the connector's AccountCredentials struct allows multiple credential
@@ -61,4 +63,5 @@ export const allValidationRules: ValidationRule[] = [
   randomPasswordConstraintsRule,
   databasesConfigRule,
   actionQueryShapeRule,
+  actionArgumentDefaultRule,
 ];

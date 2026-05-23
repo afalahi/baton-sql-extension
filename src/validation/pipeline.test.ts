@@ -487,3 +487,30 @@ actions:
   );
   assert.ok(matching.length > 0, 'actionQueryShapeRule should fire when both query and queries are set');
 });
+
+test('pipeline: actionArgumentDefaultRule fires when required=true and default is set', () => {
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types: {}
+actions:
+  disable_user:
+    name: Disable user
+    query: "UPDATE users SET disabled = true WHERE id = ?<user_id>"
+    arguments:
+      user_id:
+        name: User ID
+        type: string
+        required: true
+        default: "anonymous"
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /arguments\.user_id/.test(r.result.errorMessage || '') &&
+    /required|default/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'actionArgumentDefaultRule should fire when required=true and default is set');
+});

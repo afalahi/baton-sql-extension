@@ -514,3 +514,40 @@ actions:
   );
   assert.ok(matching.length > 0, 'actionArgumentDefaultRule should fire when required=true and default is set');
 });
+
+test('pipeline: principalTypeReferenceRule fires for typo principal_type', () => {
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+  group:
+    name: Group
+    description: g
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    grants:
+      - query: SELECT 1
+        map:
+          - principal_id: ".u"
+            principal_type: useer
+            entitlement_id: ".perm"
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /useer/.test(r.result.errorMessage || '') &&
+    /Did you mean.*user/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'principalTypeReferenceRule should fire for typo via pipeline');
+});

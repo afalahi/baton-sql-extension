@@ -18,6 +18,7 @@ export { randomPasswordConstraintsRule } from './randomPasswordConstraintsRule';
 export { databasesConfigRule } from './databasesConfigRule';
 export { actionQueryShapeRule } from './actionQueryShapeRule';
 export { actionArgumentDefaultRule } from './actionArgumentDefaultRule';
+export { principalTypeReferenceRule } from './principalTypeReferenceRule';
 
 import { ValidationRule } from '../types';
 import { missingCommaRule } from './missingCommaRule';
@@ -39,6 +40,7 @@ import { randomPasswordConstraintsRule } from './randomPasswordConstraintsRule';
 import { databasesConfigRule } from './databasesConfigRule';
 import { actionQueryShapeRule } from './actionQueryShapeRule';
 import { actionArgumentDefaultRule } from './actionArgumentDefaultRule';
+import { principalTypeReferenceRule } from './principalTypeReferenceRule';
 
 // Array of all validation rules for easy consumption.
 // Note: the connector's AccountCredentials struct allows multiple credential
@@ -64,4 +66,5 @@ export const allValidationRules: ValidationRule[] = [
   databasesConfigRule,
   actionQueryShapeRule,
   actionArgumentDefaultRule,
+  principalTypeReferenceRule,
 ];

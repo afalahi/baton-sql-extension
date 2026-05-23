@@ -152,3 +152,66 @@ export function hasGroupBy(ast: any): boolean {
 
   return traverse(ast);
 }
+
+/**
+ * Extract the set of column names + aliases available to row-level expressions
+ * after a SELECT statement. For `SELECT col, t.col2 AS alias`, returns
+ * {col, alias}. `SELECT *` sets `hasWildcard: true` and the caller should
+ * treat that as "can't verify" rather than "no columns".
+ *
+ * Handles AST shapes from node-sql-parser. Non-select statements return an
+ * empty set with hasWildcard: false.
+ */
+export function extractSelectColumns(ast: any): { columns: Set<string>; hasWildcard: boolean } {
+  const columns = new Set<string>();
+  let hasWildcard = false;
+
+  if (!ast) return { columns, hasWildcard };
+
+  const statements = Array.isArray(ast) ? ast : [ast];
+
+  for (const stmt of statements) {
+    if (!stmt || stmt.type !== 'select') continue;
+    if (!Array.isArray(stmt.columns)) {
+      // node-sql-parser sometimes uses the literal string '*' as the columns field for SELECT *
+      if (stmt.columns === '*') hasWildcard = true;
+      continue;
+    }
+
+    for (const col of stmt.columns) {
+      if (col === '*') {
+        hasWildcard = true;
+        continue;
+      }
+      if (!col || typeof col !== 'object') continue;
+
+      const expr = col.expr;
+
+      // node-sql-parser emits SELECT * as { expr: { type: 'column_ref', column: '*' } }.
+      // Some older shapes use { expr: { type: 'star' } }; accept either.
+      if (expr?.type === 'star') {
+        hasWildcard = true;
+        continue;
+      }
+      if (expr?.type === 'column_ref' && expr.column === '*') {
+        hasWildcard = true;
+        continue;
+      }
+
+      if (typeof col.as === 'string' && col.as.length > 0) {
+        columns.add(col.as);
+        continue;
+      }
+
+      if (expr?.type === 'column_ref' && typeof expr.column === 'string') {
+        columns.add(expr.column);
+        continue;
+      }
+
+      // Other shapes (functions, computed exprs) without alias are not addressable
+      // by name — skip them rather than guess.
+    }
+  }
+
+  return { columns, hasWildcard };
+}

@@ -2,6 +2,19 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.8.0] - 2026-05-23
+
+### Added
+
+Two new document-scope validation rules covering action configuration:
+
+- **`action-query-shape`** — validates each action under `actions:` specifies exactly one of `query` (single SQL string) or `queries` (array). Fires for both the "both set" and "neither set" cases. Mirrors `ActionConfig.oneOf` from the schema with clearer error messages than the Red Hat YAML extension's schema output.
+- **`arg-required-default`** — validates that an action argument with `required: true` does not also specify a `default` value. The two are semantically contradictory. The schema's `ArgumentConfig.default` description notes this constraint but doesn't enforce it structurally; this rule promotes it to a real check.
+
+### Behavior deltas
+
+Users whose `actions:` blocks combine `query` + `queries`, omit both, or set both `required: true` and `default` on the same argument will now see in-editor diagnostics. Users with correct configs see no change.
+
 ## [1.7.0] - 2026-05-23
 
 ### Added

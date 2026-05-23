@@ -623,3 +623,38 @@ resource_types:
   );
   assert.ok(matching.length > 0, 'traitColumnReferenceRule should fire via pipeline');
 });
+
+test('pipeline: staticEntitlementIdUniquenessRule fires for duplicate IDs', () => {
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  group:
+    name: Group
+    description: g
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    static_entitlements:
+      - id: member
+        display_name: A
+        description: a
+        purpose: permission
+        grantable_to: [user]
+      - id: member
+        display_name: B
+        description: b
+        purpose: permission
+        grantable_to: [user]
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /member/.test(r.result.errorMessage || '') &&
+    /duplicate/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'staticEntitlementIdUniquenessRule should fire via pipeline');
+});

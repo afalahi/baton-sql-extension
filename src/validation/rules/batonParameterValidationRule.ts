@@ -1,13 +1,18 @@
 import { ValidationRule, ValidationResult } from '../types';
 import { findLineWithPattern, areWordsSimilar } from '../../utils/stringUtils';
+import { RuleContext } from '../context';
 
 export const batonParameterValidationRule: ValidationRule = {
   name: "baton-parameter-validation",
   description: "Validate Baton parameterized query syntax",
-  validate: (sql: string, originalQuery: string): ValidationResult => {
+  validate: (sql: string, originalQuery: string, ctx?: RuleContext): ValidationResult => {
+    // Prefer the un-normalized SQL via ctx (production path). Fall back to the
+    // sql arg for direct-test calls where ctx is undefined.
+    const rawSql = ctx?.query?.rawSql ?? sql;
+
     // Find all Baton parameters in the format ?<param_name>
     const batonParamRegex = /\?\<([^>]+)\>/g;
-    const matches = [...sql.matchAll(batonParamRegex)];
+    const matches = [...rawSql.matchAll(batonParamRegex)];
 
     if (matches.length === 0) {
       return { isValid: true }; // No Baton parameters to validate

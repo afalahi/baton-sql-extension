@@ -394,3 +394,22 @@ resource_types:
   );
   assert.equal(matching.length, 0, 'built-in vars (limit, offset) must not be flagged');
 });
+
+test('pipeline: scopeEnumRule fires for scope=clustr via the full pipeline', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      scope: clustr
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r => /Did you mean.*cluster/i.test(r.result.errorMessage || ''));
+  assert.ok(matching.length > 0, 'scopeEnumRule should fire for typo via pipeline');
+});

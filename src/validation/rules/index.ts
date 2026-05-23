@@ -13,6 +13,7 @@ export { batonParameterValidationRule } from './batonParameterValidationRule';
 export { trailingCommaRule } from './trailingCommaRule';
 export { varsQueryMismatchRule } from './varsQueryMismatchRule';
 export { unconventionalSqlSyntaxRule } from './unconventionalSqlSyntaxRule';
+export { scopeEnumRule } from './scopeEnumRule';
 
 import { ValidationRule } from '../types';
 import { missingCommaRule } from './missingCommaRule';
@@ -29,6 +30,7 @@ import { batonParameterValidationRule } from './batonParameterValidationRule';
 import { trailingCommaRule } from './trailingCommaRule';
 import { varsQueryMismatchRule } from './varsQueryMismatchRule';
 import { unconventionalSqlSyntaxRule } from './unconventionalSqlSyntaxRule';
+import { scopeEnumRule } from './scopeEnumRule';
 
 // Array of all validation rules for easy consumption.
 // Note: the connector's AccountCredentials struct allows multiple credential
@@ -49,4 +51,5 @@ export const allValidationRules: ValidationRule[] = [
   trailingCommaRule,
   varsQueryMismatchRule,
   unconventionalSqlSyntaxRule,
+  scopeEnumRule,
 ];

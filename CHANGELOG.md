@@ -2,6 +2,26 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.6.0] - 2026-05-23
+
+### Fixed
+
+- **`batonParameterValidationRule` now fires in production.** The rule scans for `?<name>` patterns; previously it received the normalized SQL (with `?<name>` already replaced by `?`) and never matched. It now reads the un-normalized SQL via `ctx.query.rawSql`. Configs using a Baton param named after a SQL keyword (e.g., `?<select>`), with an invalid character (e.g., `?<user-id>`), or with a too-short name will now surface diagnostics.
+- **`varsQueryMismatchRule` now fires in production** and uses the correctly-scoped `vars:` block from `ctx.query.varsScope` instead of scanning the entire YAML document. Configs whose query references a param not in the resource type's own `vars:` block now produce a diagnostic, and configs that define a `vars:` entry never referenced by the query do too.
+
+### Added
+
+- **Built-in vars `limit`, `offset`, `cursor`** are now treated as automatically defined by `varsQueryMismatchRule`, matching `baton-sql/pkg/bsql/validate.go`'s `validateVarsInQuery`. Paginated queries like `... LIMIT ?<limit> OFFSET ?<offset>` no longer need redundant `vars:` entries.
+
+### Behavior deltas
+
+Users will see two new categories of diagnostics on misconfigured YAML files. These were silently passing before PR3:
+
+- `Baton parameter name '<name>' conflicts with SQL keyword` / `is too short` / contains invalid characters
+- `Query uses parameter ?<name> but it's not defined in 'vars'` / `Variable(s) defined in 'vars' but not used in query`
+
+Diagnostic priority when both apply: undefined first (matches the connector's `validateVarsInQuery` priority). Users with correct configs see no change.
+
 ## [1.5.0] - 2026-05-22
 
 ### Changed

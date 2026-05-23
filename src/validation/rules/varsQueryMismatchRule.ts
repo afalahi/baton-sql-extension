@@ -111,24 +111,25 @@ export const varsQueryMismatchRule: ValidationRule = {
     // that's our UX guardrail). Unused fires only when undefined is empty.
 
     if (undefinedVars.length > 0) {
-      // Find the first line where the undefined variable is used. When ctx
-      // is set we don't have a usable per-line index, so fall back to line 0.
-      let errorLineNumber = 0;
+      // In ctx mode we don't have a usable per-line index for the param,
+      // so omit lineNumber entirely — the server then anchors the diagnostic
+      // to query.startOffset/endOffset (the query span), which is the right
+      // place to underline. In fallback mode, scan the originalQuery YAML
+      // for the line where the param is used.
+      const result: ValidationResult = {
+        isValid: false,
+        errorMessage: `Query uses parameter ?<${undefinedVars[0]}> but it's not defined in 'vars'. Add '${undefinedVars[0]}: <value>' to the vars block.`,
+      };
       if (!ctx?.query) {
         const lines = originalQuery.split('\n');
         for (let i = 0; i < lines.length; i++) {
           if (lines[i].includes(`?<${undefinedVars[0]}>`)) {
-            errorLineNumber = i;
+            result.lineNumber = i;
             break;
           }
         }
       }
-
-      return {
-        isValid: false,
-        errorMessage: `Query uses parameter ?<${undefinedVars[0]}> but it's not defined in 'vars'. Add '${undefinedVars[0]}: <value>' to the vars block.`,
-        lineNumber: errorLineNumber,
-      };
+      return result;
     }
 
     if (unusedVars.length > 0) {

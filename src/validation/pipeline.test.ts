@@ -365,9 +365,9 @@ resource_types:
   uriToHash.clear();
   const { results } = validateDocument(yaml);
   const matching = results.filter(r =>
-    /not defined|not used/i.test(r.result.errorMessage || '')
+    /not defined/i.test(r.result.errorMessage || '')
   );
-  assert.ok(matching.length > 0, 'varsQueryMismatchRule should fire in production');
+  assert.ok(matching.length > 0, 'varsQueryMismatchRule should fire for the undefined param (undefined-first priority)');
 });
 
 test('pipeline: ?<limit> + ?<offset> are accepted without explicit vars (built-ins)', () => {

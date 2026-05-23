@@ -413,3 +413,36 @@ resource_types:
   const matching = results.filter(r => /Did you mean.*cluster/i.test(r.result.errorMessage || ''));
   assert.ok(matching.length > 0, 'scopeEnumRule should fire for typo via pipeline');
 });
+
+test('pipeline: randomPasswordConstraintsRule fires for empty char_set via the full pipeline', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    account_provisioning:
+      schema:
+        - { name: u, description: u, type: string, placeholder: x, required: true }
+      credentials:
+        random_password:
+          preferred: true
+          constraints:
+            - { char_set: "", min_count: 5 }
+      validate:
+        query: SELECT 1
+      create:
+        queries: [ "INSERT INTO users (id) VALUES (1)" ]
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /char_set/.test(r.result.errorMessage || '') &&
+    /empty|non-empty/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'randomPasswordConstraintsRule should fire for empty char_set');
+});

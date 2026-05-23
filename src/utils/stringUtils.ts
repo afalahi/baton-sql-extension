@@ -91,3 +91,18 @@ export function areWordsSimilar(word1: string, word2: string, threshold: number 
   const distance = levenshteinDistance(word1.toLowerCase(), word2.toLowerCase());
   return distance <= threshold;
 }
+
+/**
+ * Whether a value looks like a literal reference (resource type ID, entitlement ID)
+ * rather than a CEL/jq-style expression. Used by cross-query reference rules to
+ * decide whether a value should be matched against a known-IDs set or skipped.
+ *
+ * Plain identifier or namespaced identifier (e.g., 'user', 'role:admin', 'foo-bar')
+ * → literal. Anything containing dots, quotes, operators, whitespace, or trailing/
+ * leading colons → expression. Each colon-separated segment must itself be a
+ * non-empty identifier, so 'foo:' / ':foo' are rejected.
+ */
+export function looksLikeLiteralReference(s: string): boolean {
+  // eslint-disable-next-line security/detect-unsafe-regex -- bounded identifier pattern; nested quantifiers operate on disjoint character classes (one mandatory ':' between segments), so no catastrophic backtracking
+  return /^[a-zA-Z_][a-zA-Z0-9_\-]*(:[a-zA-Z_][a-zA-Z0-9_\-]*)*$/.test(s);
+}

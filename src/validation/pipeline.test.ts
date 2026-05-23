@@ -321,3 +321,76 @@ resource_types:
   assert.equal(conflictQ!.ast, null);
   assert.ok(conflictQ!.astError, 'astError should be populated when parse fails');
 });
+
+test('pipeline: batonParameterValidationRule fires for ?<select> via the full pipeline', () => {
+  // Before PR3 this YAML produced zero diagnostics in production because
+  // the rule was reading the normalized SQL. After PR3 the rule reads
+  // ctx.query.rawSql and correctly flags the SQL-keyword conflict.
+  const yaml = `
+app_name: t
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: "SELECT * FROM users WHERE x = ?<select>"
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r => /SQL keyword/i.test(r.result.errorMessage || ''));
+  assert.ok(matching.length > 0, 'batonParameterValidationRule should fire in production');
+});
+
+test('pipeline: varsQueryMismatchRule fires for undefined param via the full pipeline', () => {
+  // Resource type defines `vars: { team_id }` but the query uses ?<user_id>.
+  // The pipeline must surface this through varsQueryMismatchRule.
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      vars:
+        team_id: input.team_id
+      query: "SELECT * FROM users WHERE id = ?<user_id>"
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /not defined/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'varsQueryMismatchRule should fire for the undefined param (undefined-first priority)');
+});
+
+test('pipeline: ?<limit> + ?<offset> are accepted without explicit vars (built-ins)', () => {
+  // Paginated query using the built-in vars. Before PR3 this would have
+  // produced no diagnostic anyway (because the rule was broken), but
+  // critically it must NOT produce a "limit not defined" diagnostic
+  // through the new ctx path.
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: "SELECT * FROM users LIMIT ?<limit> OFFSET ?<offset>"
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /limit|offset/i.test(r.result.errorMessage || '') &&
+    /not defined/i.test(r.result.errorMessage || '')
+  );
+  assert.equal(matching.length, 0, 'built-in vars (limit, offset) must not be flagged');
+});

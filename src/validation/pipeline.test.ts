@@ -594,3 +594,32 @@ resource_types:
   );
   assert.ok(matching.length > 0, 'entitlementIdReferenceRule should fire for typo via pipeline');
 });
+
+test('pipeline: traitColumnReferenceRule fires for trait referencing unselected column', () => {
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: "SELECT id, login FROM users"
+      pagination: { strategy: offset, primary_key: id }
+      map:
+        id: ".id"
+        display_name: ".login"
+        traits:
+          user:
+            emails: [".email"]
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /\.email/.test(r.result.errorMessage || '') &&
+    /not selected/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'traitColumnReferenceRule should fire via pipeline');
+});

@@ -446,3 +446,21 @@ resource_types:
   );
   assert.ok(matching.length > 0, 'randomPasswordConstraintsRule should fire for empty char_set');
 });
+
+test('pipeline: databasesConfigRule fires when both static and discovery_query are set', () => {
+  const yaml = `
+connect:
+  dsn: postgres://x
+  databases:
+    static: [a, b]
+    discovery_query: "SELECT datname FROM pg_database"
+resource_types: {}
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /exactly one|static.*discovery_query/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'databasesConfigRule should fire when both are set');
+});

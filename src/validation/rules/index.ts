@@ -15,6 +15,7 @@ export { varsQueryMismatchRule } from './varsQueryMismatchRule';
 export { unconventionalSqlSyntaxRule } from './unconventionalSqlSyntaxRule';
 export { scopeEnumRule } from './scopeEnumRule';
 export { randomPasswordConstraintsRule } from './randomPasswordConstraintsRule';
+export { databasesConfigRule } from './databasesConfigRule';
 
 import { ValidationRule } from '../types';
 import { missingCommaRule } from './missingCommaRule';
@@ -33,6 +34,7 @@ import { varsQueryMismatchRule } from './varsQueryMismatchRule';
 import { unconventionalSqlSyntaxRule } from './unconventionalSqlSyntaxRule';
 import { scopeEnumRule } from './scopeEnumRule';
 import { randomPasswordConstraintsRule } from './randomPasswordConstraintsRule';
+import { databasesConfigRule } from './databasesConfigRule';
 
 // Array of all validation rules for easy consumption.
 // Note: the connector's AccountCredentials struct allows multiple credential
@@ -55,4 +57,5 @@ export const allValidationRules: ValidationRule[] = [
   unconventionalSqlSyntaxRule,
   scopeEnumRule,
   randomPasswordConstraintsRule,
+  databasesConfigRule,
 ];

@@ -394,3 +394,73 @@ resource_types:
   );
   assert.equal(matching.length, 0, 'built-in vars (limit, offset) must not be flagged');
 });
+
+test('pipeline: scopeEnumRule fires for scope=clustr via the full pipeline', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      scope: clustr
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r => /Did you mean.*cluster/i.test(r.result.errorMessage || ''));
+  assert.ok(matching.length > 0, 'scopeEnumRule should fire for typo via pipeline');
+});
+
+test('pipeline: randomPasswordConstraintsRule fires for empty char_set via the full pipeline', () => {
+  const yaml = `
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    account_provisioning:
+      schema:
+        - { name: u, description: u, type: string, placeholder: x, required: true }
+      credentials:
+        random_password:
+          preferred: true
+          constraints:
+            - { char_set: "", min_count: 5 }
+      validate:
+        query: SELECT 1
+      create:
+        queries: [ "INSERT INTO users (id) VALUES (1)" ]
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /char_set/.test(r.result.errorMessage || '') &&
+    /empty|non-empty/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'randomPasswordConstraintsRule should fire for empty char_set');
+});
+
+test('pipeline: databasesConfigRule fires when both static and discovery_query are set', () => {
+  const yaml = `
+connect:
+  dsn: postgres://x
+  databases:
+    static: [a, b]
+    discovery_query: "SELECT datname FROM pg_database"
+resource_types: {}
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /exactly one|static.*discovery_query/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'databasesConfigRule should fire when both are set');
+});

@@ -2,6 +2,20 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.7.0] - 2026-05-23
+
+### Added
+
+Three new document-scope validation rules that mirror static checks from `baton-sql/pkg/bsql/validate.go`:
+
+- **`scope-enum`** — validates the `scope:` field on `list` / `entitlements` / `grants[]` is empty or `"cluster"`. Surfaces a `Did you mean 'cluster'?` suggestion for typos within Levenshtein distance 2 (e.g., `clustr`, `cluser`, `clustar`). Mirrors `validateScope`.
+- **`random-password-constraints`** — validates each entry in `account_provisioning.credentials.random_password.constraints[]` has a non-empty `char_set` and `min_count > 0`. Mirrors `validatePasswordConstraints`.
+- **`databases-config`** — validates `connect.databases` does not set both `static` and `discovery_query`. The JSON schema already enforces this via `oneOf`; the rule provides faster in-editor feedback.
+
+### Behavior deltas
+
+Users with these specific misconfigurations will now see diagnostics in the editor instead of discovering them at connector startup. Users with correct configs see no change.
+
 ## [1.6.0] - 2026-05-23
 
 ### Fixed

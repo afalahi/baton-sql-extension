@@ -551,3 +551,46 @@ resource_types:
   );
   assert.ok(matching.length > 0, 'principalTypeReferenceRule should fire for typo via pipeline');
 });
+
+test('pipeline: entitlementIdReferenceRule fires for typo entitlement_id', () => {
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+  group:
+    name: Group
+    description: g
+    list:
+      query: SELECT 1
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+    static_entitlements:
+      - id: admin
+        display_name: Admin
+        description: a
+        purpose: permission
+        grantable_to: [user]
+    grants:
+      - query: SELECT 1
+        map:
+          - principal_id: ".u"
+            principal_type: user
+            entitlement_id: admn
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const matching = results.filter(r =>
+    /admn/.test(r.result.errorMessage || '') &&
+    /Did you mean.*admin/i.test(r.result.errorMessage || '')
+  );
+  assert.ok(matching.length > 0, 'entitlementIdReferenceRule should fire for typo via pipeline');
+});

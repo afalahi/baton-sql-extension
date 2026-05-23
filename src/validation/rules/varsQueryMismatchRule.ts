@@ -1,101 +1,126 @@
 import { ValidationRule, ValidationResult } from '../types';
+import { RuleContext } from '../context';
+
+/**
+ * Built-in vars per baton-sql/pkg/bsql/validate.go:validateVarsInQuery.
+ * Queries may use these without declaring them in the resource type's
+ * `vars:` block.
+ */
+const BUILTIN_VARS = new Set(['limit', 'offset', 'cursor']);
 
 /**
  * Validates that variables defined in `vars` are used in the query,
- * and that variables used in the query with ?<variable> syntax are defined in `vars`.
+ * and that variables used in the query with ?<variable> syntax are defined
+ * in `vars` (or are built-in pagination vars).
+ *
+ * The rule prefers ctx.query.usedParams + ctx.query.varsScope when ctx is
+ * set (production pipeline path). Without ctx (direct unit-test calls), it
+ * falls back to scanning the sql arg for ?<name> patterns via matchAll and
+ * the originalQuery arg for a `vars:` block — preserving existing tests.
+ *
+ * Diagnostic priority: when BOTH "undefined" and "unused" apply, the rule
+ * reports undefined first. The connector errors on undefined; unused is our
+ * UX guardrail. Unused fires only when undefined is empty.
  */
 export const varsQueryMismatchRule: ValidationRule = {
   name: "vars-query-mismatch",
   description: "Check for mismatches between vars definitions and query parameter usage",
-  validate: (sql: string, originalQuery: string): ValidationResult => {
-    // This rule only applies when we have access to the YAML context
-    // We need to check if there's a vars block and query in the same context
-
-    // Extract all ?<variable> parameters from the SQL query
-    const parameterPattern = /\?<(\w+)>/g;
+  validate: (sql: string, originalQuery: string, ctx?: RuleContext): ValidationResult => {
+    // --- Step 1: collect usedParameters ---
     const usedParameters = new Set<string>();
-    let match;
-
-    while ((match = parameterPattern.exec(sql)) !== null) {
-      usedParameters.add(match[1]);
+    if (ctx?.query) {
+      // Production path: usedParams was computed from rawSql by parseQuery.
+      for (const name of ctx.query.usedParams) {
+        usedParameters.add(name);
+      }
+    } else {
+      // Fallback path: scan sql arg directly via matchAll.
+      const parameterPattern = /\?<(\w+)>/g;
+      for (const match of sql.matchAll(parameterPattern)) {
+        usedParameters.add(match[1]);
+      }
     }
 
-    // If no parameters are used, this rule doesn't apply
+    // If no parameters are used, this rule doesn't apply.
     if (usedParameters.size === 0) {
       return { isValid: true };
     }
 
-    // Try to find vars block in the YAML context
-    // Look for lines like "vars:" followed by "variable_name: value"
-    const lines = originalQuery.split('\n');
-    let inVarsBlock = false;
-    let varsBlockIndent = 0;
+    // --- Step 2: collect definedVars ---
     const definedVars = new Set<string>();
     let varsLineNumber = -1;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
-
-      // Check if we're entering a vars block
-      if (trimmed === 'vars:') {
-        inVarsBlock = true;
-        varsLineNumber = i;
-        varsBlockIndent = line.length - line.trimStart().length;
-        continue;
+    if (ctx?.query) {
+      // Production path: use the resolved scope from the document walker.
+      for (const name of ctx.query.varsScope.keys()) {
+        definedVars.add(name);
       }
+      // varsLineNumber is only meaningful for the YAML-scan fallback; when
+      // using ctx we don't have a usable per-line index. The unused-vars
+      // diagnostic will be emitted without lineNumber in this mode.
+    } else {
+      // Fallback path: scan originalQuery for a `vars:` block.
+      const lines = originalQuery.split('\n');
+      let inVarsBlock = false;
+      let varsBlockIndent = 0;
 
-      // Check if we're still in the vars block
-      if (inVarsBlock) {
-        const currentIndent = line.length - line.trimStart().length;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
 
-        // If we hit a line with same or less indentation (and it's not empty), we've left the vars block
-        if (trimmed && currentIndent <= varsBlockIndent) {
-          inVarsBlock = false;
+        if (trimmed === 'vars:') {
+          inVarsBlock = true;
+          varsLineNumber = i;
+          varsBlockIndent = line.length - line.trimStart().length;
           continue;
         }
 
-        // Parse variable definitions: "variable_name: value"
-        const varMatch = trimmed.match(/^(\w+):\s*.+/);
-        if (varMatch) {
-          definedVars.add(varMatch[1]);
+        if (inVarsBlock) {
+          const currentIndent = line.length - line.trimStart().length;
+          if (trimmed && currentIndent <= varsBlockIndent) {
+            inVarsBlock = false;
+            continue;
+          }
+          const varMatch = trimmed.match(/^(\w+):\s*.+/);
+          if (varMatch) {
+            definedVars.add(varMatch[1]);
+          }
         }
       }
     }
 
-    // Check for unused variables (defined in vars but not used in query)
+    // --- Step 3: compute unused + undefined, excluding built-ins ---
     const unusedVars: string[] = [];
     for (const varName of definedVars) {
+      if (BUILTIN_VARS.has(varName)) continue;
       if (!usedParameters.has(varName)) {
         unusedVars.push(varName);
       }
     }
 
-    // Check for undefined variables (used in query but not defined in vars)
     const undefinedVars: string[] = [];
     for (const paramName of usedParameters) {
+      if (BUILTIN_VARS.has(paramName)) continue;
       if (!definedVars.has(paramName)) {
         undefinedVars.push(paramName);
       }
     }
 
-    // Report unused variables
-    if (unusedVars.length > 0 && varsLineNumber !== -1) {
-      return {
-        isValid: false,
-        errorMessage: `Variable(s) defined in 'vars' but not used in query: ${unusedVars.join(', ')}. Either use them in the query with ?<${unusedVars[0]}> or remove them from vars.`,
-        lineNumber: varsLineNumber,
-      };
-    }
+    // --- Step 4: report ---
+    // Priority: undefined first (matches connector's validateVarsInQuery, which
+    // errors on undefined vars; the connector doesn't check unused at all —
+    // that's our UX guardrail). Unused fires only when undefined is empty.
 
-    // Report undefined variables (more critical)
     if (undefinedVars.length > 0) {
-      // Find the first line where the undefined variable is used
+      // Find the first line where the undefined variable is used. When ctx
+      // is set we don't have a usable per-line index, so fall back to line 0.
       let errorLineNumber = 0;
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes(`?<${undefinedVars[0]}>`)) {
-          errorLineNumber = i;
-          break;
+      if (!ctx?.query) {
+        const lines = originalQuery.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes(`?<${undefinedVars[0]}>`)) {
+            errorLineNumber = i;
+            break;
+          }
         }
       }
 
@@ -104,6 +129,20 @@ export const varsQueryMismatchRule: ValidationRule = {
         errorMessage: `Query uses parameter ?<${undefinedVars[0]}> but it's not defined in 'vars'. Add '${undefinedVars[0]}: <value>' to the vars block.`,
         lineNumber: errorLineNumber,
       };
+    }
+
+    if (unusedVars.length > 0) {
+      // Emit in both modes. lineNumber is set only when we have a precise
+      // YAML position (fallback mode); in ctx mode the diagnostic anchors
+      // to the query span via the server's default range conversion.
+      const result: ValidationResult = {
+        isValid: false,
+        errorMessage: `Variable(s) defined in 'vars' but not used in query: ${unusedVars.join(', ')}. Either use them in the query with ?<${unusedVars[0]}> or remove them from vars.`,
+      };
+      if (varsLineNumber !== -1) {
+        result.lineNumber = varsLineNumber;
+      }
+      return result;
     }
 
     return { isValid: true };

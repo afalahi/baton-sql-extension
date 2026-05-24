@@ -2,6 +2,12 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.10.2] - 2026-05-24
+
+### Fixed
+
+`npm run package` now runs `npm run build` first. Previously `vsce package` bundled whatever was already in `out/`, which meant editing source and packaging without an intervening `npm run build` shipped a stale VSIX that didn't include the changes. The 1.10.1 VSIX was a victim of this — it had the version bump but not the pipeline fix. 1.10.2 is the same fix as 1.10.1 but actually bundled.
+
 ## [1.10.1] - 2026-05-24
 
 ### Fixed

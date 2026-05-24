@@ -2,6 +2,12 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.10.5] - 2026-05-24
+
+### Fixed
+
+`invalid-join` rule false-positive on `JOIN t a ON t.x = a.y` after a parse failure. When a trailing comma in the SELECT made the AST parser bail, the string-based fallback misread three-identifier-before-ON join shapes (`JOIN table alias ON ...`) because `hasTableNameInLine`'s regex only matched `JOIN table` or `JOIN table alias` (one or two identifiers, then ON). The last JOIN in the block was then falsely flagged as missing its ON clause. Same-line ON check is now the first path in `analyzeJoinStructure` and doesn't gate on the table-name heuristic.
+
 ## [1.10.4] - 2026-05-24
 
 ### Fixed

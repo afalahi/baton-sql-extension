@@ -472,7 +472,12 @@ function buildQueryIfPresent(
   dialect: string | undefined,
 ): ParsedQuery | null {
   if (typeof rawSql !== 'string' || rawSql.length === 0) return null;
-  const { startOffset, endOffset } = locateQueryInYaml(yamlContent, rawSql, yamlPath);
+  // Use the previous query's endOffset as a forward cursor. Multiple queries
+  // commonly share the same first line (`SELECT ...`); without a cursor the
+  // first-line and yamlPath-anchored strategies would lock onto the first
+  // occurrence for every query, mis-anchoring diagnostics for queries 2..N.
+  const searchStart = into.length > 0 ? into[into.length - 1].endOffset : 0;
+  const { startOffset, endOffset } = locateQueryInYaml(yamlContent, rawSql, yamlPath, searchStart);
   const query = parseQuery({
     rawSql,
     yamlPath,
@@ -503,20 +508,37 @@ function buildQueryIfPresent(
 function locateQueryInYaml(
   yamlContent: string,
   rawSql: string,
-  yamlPath: (string | number)[]
+  yamlPath: (string | number)[],
+  searchStart: number = 0,
 ): { startOffset: number; endOffset: number } {
-  // 1. Direct match.
-  const direct = yamlContent.indexOf(rawSql);
+  // Helper: compute the byte offset of the start of the line containing `byteOffset`.
+  const lineStartFor = (byteOffset: number): number => {
+    const lastNl = yamlContent.lastIndexOf('\n', byteOffset - 1);
+    return lastNl === -1 ? 0 : lastNl + 1;
+  };
+  // Helper: 0-indexed line number containing `byteOffset`.
+  const lineFor = (byteOffset: number): number => {
+    let n = 0;
+    for (let k = 0; k < byteOffset && k < yamlContent.length; k++) {
+      // eslint-disable-next-line security/detect-object-injection -- counter
+      if (yamlContent[k] === '\n') n++;
+    }
+    return n;
+  };
+
+  // 1. Direct match starting at the cursor.
+  const direct = yamlContent.indexOf(rawSql, searchStart);
   if (direct !== -1) {
     return { startOffset: direct, endOffset: direct + rawSql.length };
   }
 
-  // 2. First-line search.
+  // 2. First-line search starting at or after the cursor's line.
   const queryLines = rawSql.split('\n').filter(l => l.trim().length > 0);
   if (queryLines.length > 0) {
     const firstLine = queryLines[0].trim();
     const lines = yamlContent.split('\n');
-    for (let i = 0; i < lines.length; i++) {
+    const startLine = lineFor(searchStart);
+    for (let i = startLine; i < lines.length; i++) {
       // eslint-disable-next-line security/detect-object-injection -- index from for-loop counter
       if (lines[i].includes(firstLine)) {
         const offset = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
@@ -525,13 +547,14 @@ function locateQueryInYaml(
     }
   }
 
-  // 3. yamlPath-anchored section search.
+  // 3. yamlPath-anchored section search after the cursor.
   const stringSegs = yamlPath.filter((s): s is string => typeof s === 'string');
   if (stringSegs.length > 0) {
     const lastKey = stringSegs[stringSegs.length - 1];
     const lines = yamlContent.split('\n');
+    const startLine = lineFor(searchStart);
     let inSection = false;
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = startLine; i < lines.length; i++) {
       // eslint-disable-next-line security/detect-object-injection -- index from for-loop counter
       const trimmed = lines[i].trim();
       if (!trimmed || trimmed.startsWith('#')) continue;
@@ -546,9 +569,7 @@ function locateQueryInYaml(
     }
   }
 
-  // 4. Normalized-whitespace existence check (last resort). When this matches
-  // we know the SQL is somewhere in the YAML but reflowed; anchor to the
-  // yamlPath's last key line if we can find it, otherwise document start.
+  // 4. Normalized-whitespace existence check (last resort).
   const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
   const normalizedRaw = norm(rawSql);
   const normalizedYaml = norm(yamlContent);
@@ -557,7 +578,8 @@ function locateQueryInYaml(
     const lastKey2 = stringSegs2[stringSegs2.length - 1];
     if (lastKey2) {
       const lines = yamlContent.split('\n');
-      for (let i = 0; i < lines.length; i++) {
+      const startLine = lineFor(searchStart);
+      for (let i = startLine; i < lines.length; i++) {
         // eslint-disable-next-line security/detect-object-injection -- index from for-loop counter
         if (lines[i].trim().startsWith(lastKey2 + ':')) {
           const offset = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
@@ -565,7 +587,9 @@ function locateQueryInYaml(
         }
       }
     }
-    return { startOffset: 0, endOffset: rawSql.length };
+    // No path anchor available: anchor at the search cursor's line start.
+    const offset = lineStartFor(searchStart);
+    return { startOffset: offset, endOffset: offset + rawSql.length };
   }
 
   // All strategies failed; fall back to zero offsets.

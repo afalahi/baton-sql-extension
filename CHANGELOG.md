@@ -2,6 +2,12 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.10.4] - 2026-05-24
+
+### Fixed
+
+Multi-query documents anchored all but the first query's diagnostics to the wrong location. `locateQueryInYaml`'s first-line strategy walked from the top of the YAML and locked onto the first occurrence of `SELECT` for every query, so a diagnostic on the second query's SQL ended up squiggling lines in the first query's block. Added a forward cursor: each `buildQueryIfPresent` call passes the previous query's `endOffset` to `locateQueryInYaml`, so all four locator strategies start their search after the last located query. Includes a regression test that constructs two resource types whose `list.query` both start with `SELECT` and asserts they get distinct `startOffset`s.
+
 ## [1.10.3] - 2026-05-24
 
 ### Fixed

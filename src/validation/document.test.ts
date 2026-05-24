@@ -798,3 +798,49 @@ resource_types:
   const lineOfStart = (before.match(/\n/g) || []).length;
   assert.equal(lineOfStart, 9, `expected query.startOffset on YAML line 9 (SELECT), got line ${lineOfStart}`);
 });
+
+test('buildBatonDocument: multiple queries with same first line get distinct startOffsets', () => {
+  // Regression: locateQueryInYaml's first-line strategy walked from the top of
+  // the YAML and locked onto the first occurrence of 'SELECT' for every query,
+  // so all but the first query were mis-anchored. The cursor (passed via
+  // `into.length > 0 ? into[length-1].endOffset : 0`) advances past located
+  // queries and forces each subsequent query to scan downstream.
+  const yaml = `app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: |
+        SELECT
+          id,
+          name
+        FROM users
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+  role:
+    name: Role
+    description: r
+    list:
+      query: |
+        SELECT
+          id,
+          title
+        FROM roles
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".title" }
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.equal(doc.queries.length, 2);
+  const [first, second] = doc.queries;
+
+  const lineOf = (offset: number) => (yaml.slice(0, offset).match(/\n/g) || []).length;
+  const firstLine = lineOf(first.startOffset);
+  const secondLine = lineOf(second.startOffset);
+
+  // Two distinct queries → two distinct line offsets.
+  assert.notEqual(firstLine, secondLine, 'second query must not share startOffset with the first');
+  assert.ok(secondLine > firstLine, `second query (${secondLine}) must appear after first (${firstLine})`);
+});

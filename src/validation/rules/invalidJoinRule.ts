@@ -181,18 +181,26 @@ function extractJoinType(line: string): string {
  * Analyze JOIN structure to find table names and ON clauses
  */
 function analyzeJoinStructure(lines: string[], joinLineIndex: number, joinStructure: any): void {
+  // eslint-disable-next-line security/detect-object-injection -- index passed in from controlled caller
   const joinLine = lines[joinLineIndex].trim();
+  const joinLineLower = joinLine.toLowerCase();
 
-  // Check if table name is on the same line as JOIN
+  // First check the most common shape: ON clause on the same line as JOIN.
+  // This handles `JOIN t a ON t.x = a.y` regardless of how many identifiers
+  // precede ON, which `hasTableNameInLine`'s stricter regex doesn't cover.
+  if (joinLineLower.includes(" on ")) {
+    if (hasTableNameInLine(joinLine)) {
+      joinStructure.tableName = extractTableName(joinLine);
+      joinStructure.tableLineIndex = joinLineIndex;
+    }
+    joinStructure.hasProperOnClause = true;
+    return;
+  }
+
+  // Otherwise, see if the JOIN line at least carries a table name for later use.
   if (hasTableNameInLine(joinLine)) {
     joinStructure.tableName = extractTableName(joinLine);
     joinStructure.tableLineIndex = joinLineIndex;
-
-    // Check if ON clause is also on the same line
-    if (joinLine.toLowerCase().includes(" on ")) {
-      joinStructure.hasProperOnClause = true;
-      return;
-    }
   }
 
   // Look for table name and ON clause in following lines

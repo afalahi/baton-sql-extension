@@ -2,6 +2,17 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.10.3] - 2026-05-24
+
+### Fixed
+
+Diagnostic line anchoring. Two compounding bugs caused query-scope diagnostics (e.g., `keyword-spelling`, `trailing-comma`) to land on the wrong YAML line:
+
+1. **Server-side**: `server.ts` treated the rule's `lineNumber` as an absolute YAML line, but query-scope rules return SQL-relative line numbers (line within the SQL block). The server now adds the query block's starting YAML line for query-scope rules and continues to treat doc-scope `lineNumber` as YAML-absolute.
+2. **Locator-side**: `locateQueryInYaml`'s normalized-whitespace fallback (strategy 2) was returning the index in the normalized string as if it were a real YAML byte offset. For `query: |` literal blocks, this produced offsets that didn't align with any real YAML line. Reordered so line-accurate strategies (direct match, first-line search, yamlPath-anchored search) run before the normalized fallback, which is now a last-resort existence check that snaps to the yamlPath's last key line.
+
+Symptom before fix: `FORM users` (typo) flagged keyword-spelling diagnostic anchored to the `user:` line several lines above; trailing-comma diagnostic anchored to `resource_types:` at the top of the file.
+
 ## [1.10.2] - 2026-05-24
 
 ### Fixed

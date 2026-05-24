@@ -58,7 +58,11 @@ export function validateDocument(
 
   const runRule = (rule: typeof allValidationRules[number], sql: string, query?: ParsedQuery) => {
     try {
-      const out = rule.validate(sql, yamlContent, { query, document });
+      // Query-scope rules expect the second arg to be the SQL block itself (their
+      // string-scanning loops iterate it). Document-scope rules use it as the YAML
+      // payload for line anchoring. Branch on whether a query is in play.
+      const secondArg = query ? query.rawSql : yamlContent;
+      const out = rule.validate(sql, secondArg, { query, document });
       const arr = Array.isArray(out) ? out : [out];
       for (const result of arr) {
         if (!result.isValid) {

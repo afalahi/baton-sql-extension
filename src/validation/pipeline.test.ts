@@ -658,3 +658,43 @@ resource_types:
   );
   assert.ok(matching.length > 0, 'staticEntitlementIdUniquenessRule should fire via pipeline');
 });
+
+test('pipeline: query-scope rules receive the SQL block, not yamlContent, as originalQuery', () => {
+  // Regression: PR1 wired the pipeline to pass yamlContent as the rule's second arg,
+  // but query-scope rules like missingCommaRule iterate that arg line-by-line and
+  // expect just the SQL block. Passing yamlContent caused false-positive "missing
+  // comma" diagnostics on multi-line SELECTs followed by other YAML fields.
+  const yaml = `
+app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: |
+        SELECT
+          id AS user_id,
+          username as user_name,
+          created_at
+        FORM users
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".user_name" }
+`;
+  documentCache.clear();
+  uriToHash.clear();
+  const { results } = validateDocument(yaml);
+  const missingComma = results.filter(r =>
+    /missing comma/i.test(r.result.errorMessage || '')
+  );
+  assert.equal(
+    missingComma.length, 0,
+    `expected no missing-comma diagnostics, got: ${missingComma.map(r => r.result.errorMessage).join('; ')}`,
+  );
+  // The keyword-spelling rule SHOULD still fire on FORM.
+  const keywordTypos = results.filter(r =>
+    /FORM/.test(r.result.errorMessage || '') && /FROM/.test(r.result.errorMessage || '')
+  );
+  assert.ok(keywordTypos.length > 0, 'keyword-spelling rule should still flag FORM');
+});

@@ -2,6 +2,12 @@
 
 All notable changes to the "Baton SQL Extension" will be documented in this file.
 
+## [1.10.1] - 2026-05-24
+
+### Fixed
+
+Pipeline was passing the entire YAML content as the second argument (`originalQuery`) to every rule. Query-scope string-scanning rules (e.g., `missing-comma`, `keyword-spelling`, `trailing-comma`) expect that argument to be the SQL block only — when it was the full YAML, the rules iterated past the SQL and across unrelated YAML keys, producing false-positive diagnostics like "Missing comma between column expressions" anchored to YAML lines that weren't even part of the SQL. The pipeline now passes `query.rawSql` for query-scope rules and continues to pass `yamlContent` for document-scope rules. Includes a regression test that exercises a real-world `SELECT ... FORM users` (typo) which previously produced both a keyword-spelling diagnostic AND a phantom missing-comma diagnostic.
+
 ## [1.10.0] - 2026-05-23
 
 ### Added

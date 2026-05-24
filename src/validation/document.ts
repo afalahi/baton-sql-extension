@@ -487,15 +487,18 @@ function buildQueryIfPresent(
 
 /**
  * Find the absolute byte offsets of `rawSql` within `yamlContent`. Tries four
- * strategies in order, matching the fallback chain in `findSQLQueries`:
+ * strategies in order. Line-accurate strategies run first; the normalized
+ * fallback runs last as a last-ditch existence check.
  *
- *   1. Direct string match (covers the common case).
- *   2. Normalized-whitespace match (YAML block-fold `>` collapses newlines).
- *   3. First-line match (multi-line block scalars where lines reflow).
- *   4. yamlPath-aware section search (anchors on the last string segment of
+ *   1. Direct string match.
+ *   2. First-line match (for block scalars like `query: |` that re-indent SQL).
+ *   3. yamlPath-aware section search (anchors on the last string segment of
  *      the yamlPath to disambiguate identical SQL appearing in two places).
+ *   4. Normalized-whitespace existence check (YAML block-fold `>` collapses
+ *      newlines). Returns the start of the YAML block containing the match
+ *      so diagnostics still anchor near the right place.
  *
- * Returns `{0, 0}` if all four strategies fail.
+ * Returns `{0, 0}` if all strategies fail.
  */
 function locateQueryInYaml(
   yamlContent: string,
@@ -508,21 +511,13 @@ function locateQueryInYaml(
     return { startOffset: direct, endOffset: direct + rawSql.length };
   }
 
-  // 2. Normalized-whitespace match.
-  const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
-  const normalizedRaw = norm(rawSql);
-  const normalizedYaml = norm(yamlContent);
-  const normIdx = normalizedYaml.indexOf(normalizedRaw);
-  if (normIdx !== -1) {
-    return { startOffset: normIdx, endOffset: normIdx + rawSql.length };
-  }
-
-  // 3. First-line search.
+  // 2. First-line search.
   const queryLines = rawSql.split('\n').filter(l => l.trim().length > 0);
   if (queryLines.length > 0) {
     const firstLine = queryLines[0].trim();
     const lines = yamlContent.split('\n');
     for (let i = 0; i < lines.length; i++) {
+      // eslint-disable-next-line security/detect-object-injection -- index from for-loop counter
       if (lines[i].includes(firstLine)) {
         const offset = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
         return { startOffset: offset, endOffset: offset + rawSql.length };
@@ -530,13 +525,14 @@ function locateQueryInYaml(
     }
   }
 
-  // 4. yamlPath-anchored section search.
+  // 3. yamlPath-anchored section search.
   const stringSegs = yamlPath.filter((s): s is string => typeof s === 'string');
   if (stringSegs.length > 0) {
     const lastKey = stringSegs[stringSegs.length - 1];
     const lines = yamlContent.split('\n');
     let inSection = false;
     for (let i = 0; i < lines.length; i++) {
+      // eslint-disable-next-line security/detect-object-injection -- index from for-loop counter
       const trimmed = lines[i].trim();
       if (!trimmed || trimmed.startsWith('#')) continue;
       if (!inSection && trimmed.includes(lastKey + ':')) {
@@ -550,8 +546,28 @@ function locateQueryInYaml(
     }
   }
 
-  // All four strategies failed; fall back to zero offsets. The diagnostic
-  // range will cover the full document, which is the same behavior today's
-  // server.ts uses when findSQLQueries returns no position info.
+  // 4. Normalized-whitespace existence check (last resort). When this matches
+  // we know the SQL is somewhere in the YAML but reflowed; anchor to the
+  // yamlPath's last key line if we can find it, otherwise document start.
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim();
+  const normalizedRaw = norm(rawSql);
+  const normalizedYaml = norm(yamlContent);
+  if (normalizedYaml.indexOf(normalizedRaw) !== -1) {
+    const stringSegs2 = yamlPath.filter((s): s is string => typeof s === 'string');
+    const lastKey2 = stringSegs2[stringSegs2.length - 1];
+    if (lastKey2) {
+      const lines = yamlContent.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        // eslint-disable-next-line security/detect-object-injection -- index from for-loop counter
+        if (lines[i].trim().startsWith(lastKey2 + ':')) {
+          const offset = lines.slice(0, i).join('\n').length + (i > 0 ? 1 : 0);
+          return { startOffset: offset, endOffset: offset + rawSql.length };
+        }
+      }
+    }
+    return { startOffset: 0, endOffset: rawSql.length };
+  }
+
+  // All strategies failed; fall back to zero offsets.
   return { startOffset: 0, endOffset: 0 };
 }

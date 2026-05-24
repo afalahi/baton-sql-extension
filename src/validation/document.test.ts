@@ -766,3 +766,35 @@ resource_types:
   assert.notEqual(conflictQ!.ast, null, 'ON CONFLICT should parse with postgres dialect');
   assert.equal(conflictQ!.astError, null);
 });
+
+test('buildBatonDocument: startOffset for query: | literal points to the SELECT line, not a reflowed normalized index', () => {
+  // Regression: locateQueryInYaml's normalized-whitespace fallback used to fire
+  // before the line-accurate strategies, returning the normalized-string index
+  // (which doesn't map to any real YAML byte offset). Diagnostic line-mapping
+  // then anchored squiggles to the wrong line (e.g., the `user:` line instead
+  // of the offending SQL line).
+  const yaml = `app_name: test
+connect:
+  dsn: postgres://x
+resource_types:
+  user:
+    name: User
+    description: u
+    list:
+      query: |
+        SELECT
+          id,
+          name
+        FROM users
+      pagination: { strategy: offset, primary_key: id }
+      map: { id: ".id", display_name: ".name" }
+`;
+  const doc = buildBatonDocument(yaml);
+  assert.equal(doc.queries.length, 1);
+  const q = doc.queries[0];
+  // The query content starts on YAML line 9 ("        SELECT"); the byte offset
+  // must place the cursor on that line (not somewhere mid-document).
+  const before = yaml.slice(0, q.startOffset);
+  const lineOfStart = (before.match(/\n/g) || []).length;
+  assert.equal(lineOfStart, 9, `expected query.startOffset on YAML line 9 (SELECT), got line ${lineOfStart}`);
+});

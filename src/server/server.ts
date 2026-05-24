@@ -156,16 +156,23 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
         end: textDocument.positionAt(endOffset),
       };
 
-      // lineNumber: absolute line in the YAML document (today's semantic).
+      // lineNumber semantics:
+      //   - Query-scope rules (pr.query defined): SQL-relative line within the
+      //     SQL block. We add the query block's starting line in the YAML.
+      //   - Document-scope rules (pr.query undefined): absolute YAML line.
       if (r.lineNumber !== undefined) {
+        const queryStartLine = pr.query
+          ? textDocument.positionAt(pr.query.startOffset).line
+          : 0;
+        const absLine = queryStartLine + r.lineNumber;
         const lines = content.split('\n');
         let offset = 0;
-        for (let i = 0; i < r.lineNumber && i < lines.length; i++) {
+        for (let i = 0; i < absLine && i < lines.length; i++) {
           offset += lines[i].length + 1;
         }
         range = {
           start: textDocument.positionAt(offset),
-          end: textDocument.positionAt(offset + (lines[r.lineNumber]?.length || 0)),
+          end: textDocument.positionAt(offset + (lines[absLine]?.length || 0)),
         };
       } else if (r.position !== undefined) {
         range = {
